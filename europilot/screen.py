@@ -7,6 +7,7 @@ local/remote machine.
 
 """
 
+from sys import platform
 from itertools import count
 
 import numpy as np
@@ -98,7 +99,7 @@ class _LocalImpl(object):
         )
 
     def _read(self, bounding_box):
-        """Reads screen and returns raw RGB `bytesarray`.
+        """Reads screen and returns raw RGB `bytearray`.
 
         :param bounding_box: Read only given area of the screen.
 
@@ -106,7 +107,7 @@ class _LocalImpl(object):
         raise NotImplementedError()
 
     def _post_process(self, raw):
-        """Parses `bytesarray` to `numpy.ndarray`
+        """Parses `bytearray` to `numpy.ndarray`
 
         """
         single_byte_uint = '|u1'
@@ -116,22 +117,63 @@ class _LocalImpl(object):
 class MssImpl(_LocalImpl):
     def __init__(self, box):
         super(MssImpl, self).__init__(box)
+        self._is_osx = platform == 'darwin'
         self._executor = mss()
+
+        if self._is_osx:
+            # XXX: `mss` passes wrong param when it calls
+            # `coregraphics.CGWindowListCreateImage' resulting in doubled
+            # image size in retina display.
+            # We fix this by hooking that function directly.
+            orig_func = self._executor.core.CGWindowListCreateImage
+            def _hook(screen_bounds, list_option, window_id, image_option):
+                norminal_resolution = 1 << 4
+                return orig_func(
+                    screen_bounds, list_option, window_id,
+                    norminal_resolution
+                )
+            self._executor.core.CGWindowListCreateImage = _hook
 
     def _read(self, bounding_box):
         """FIXME: Currently taking a screenshot is not fast enough in
         retina-like display which has a very high pixel density.
 
         """
-        # Coordinates needs to be converted accordingly.
+        # Coordinates need to be converted accordingly.
         x1, y1, x2, y2 = bounding_box.to_tuple()
+        width = x2 - x1
+        height = y2 - y1
+
         monitor_dict = {
             'left': x1,
             'top': y1,
-            'width': x2 - x1,
-            'height': y2 - y1
+            'width': width,
+            'height': height
         }
-        return self._executor.grab(monitor_dict).rgb
+
+        adjust_needed = self._is_osx and width % 16 != 0
+        if adjust_needed:
+            # XXX: When the width is not divisible by 16, extra padding is
+            # added by macOS in the form of black pixels, which results
+            # in a screenshot with shifted pixels.
+            # To prevent this, `mss` reduces width to the closest smaller
+            # multiple of 16.
+            # But we don't want the width size to be reduced unexpectedly.
+            # This is a little hack to get the exact size of image.
+            adjusted_width = width + (16 - (width % 16))
+            monitor_dict['width'] = adjusted_width
+
+            # Now `adjusted_rgb_data` has a bigger width.
+            # Let's cut the remaining width to get our desired width.
+            adjusted_rgb_data = self._executor.grab(monitor_dict).rgb
+            rgb_data = bytearray()
+            for idx in range(height):
+                offset = idx * (adjusted_width * 3)
+                rgb_data.extend(adjusted_rgb_data[offset:offset + width * 3])
+
+            return rgb_data
+        else:
+            return self._executor.grab(monitor_dict).rgb
 
 
 class PilImpl(_LocalImpl):
