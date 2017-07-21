@@ -13,7 +13,9 @@ class ControllerOutput(object):
     """
     def __init__(self):
         ON_POSIX = 'posix' in sys.builtin_module_names
-        self.p = Popen(['python', 'G27.py'], bufsize=1, stdout=PIPE,
+        # use unbuffered output, since stdout will be generally small
+        # https://stackoverflow.com/questions/1410849/bypassing-buffering-of-subprocess-output-with-popen-in-c-or-python
+        self.p = Popen(['python', '-u', 'g27.py'], bufsize=0, stdout=PIPE,
                        close_fds=ON_POSIX)
         self.q = Queue()
         self.t = Thread(target=self.__enqueue_output,
@@ -28,6 +30,7 @@ class ControllerOutput(object):
         for line in iter(process.stdout.readline, ''):
             print("line: %s" % line)
             queue.put(line)
+
         process.stdout.close()
 
     def get_output(self):
