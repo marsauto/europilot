@@ -24,6 +24,7 @@ from sklearn.metrics import confusion_matrix
 import bcolz
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.manifold import TSNE
+from sklearn.utils import shuffle
 
 from IPython.lib.display import FileLink
 
@@ -55,6 +56,8 @@ from keras.metrics import categorical_crossentropy, categorical_accuracy
 from keras.layers.convolutional import *
 from keras.preprocessing import image, sequence
 from keras.preprocessing.text import Tokenizer
+
+from keras.callbacks import ReduceLROnPlateau
 
 def img_path_to_arr(p):
     with image.load_img(p) as img:
