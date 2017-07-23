@@ -13,6 +13,8 @@ from itertools import count
 import numpy as np
 from mss import mss
 
+from .exceptions import ScreenException
+
 
 class Box(object):
     # Global counter which is used to name box
@@ -48,6 +50,13 @@ class Box(object):
             # TODO: This is needed to support multiple monitors.
             pass
 
+    @staticmethod
+    def from_monitor(monitor):
+        return Box(
+            monitor.offset_x, monitor.offset_y,
+            monitor.width, monitor.height
+        )
+
     @property
     def name(self):
         return self._name
@@ -60,29 +69,118 @@ class Box(object):
     def height(self):
         return self._y2 - self._y1
 
+    @property
+    def channel(self):
+        # Channel for RGB
+        return 3
+
+    @property
+    def numpy_shape(self):
+        return (self.height, self.width, self.channel)
+
     def to_tuple(self):
         return (self._x1, self._y1, self._x2, self._y2)
 
 
+class Monitor(object):
+    """This class holds monitor information.
+
+    """
+    def __init__(self, width, height, offset_x, offset_y, primary=False):
+        """Constructor
+
+        :param width: Monitor width
+        :param height: Monitor height
+        :param offset_x, offset_y:
+        If there are multiple monitors, other monitors expect for primary
+        one have a offsets according to os display config.
+        :param primary: Whether it is a primary monitor or not.
+
+        """
+        self._width = width
+        self._height = height
+        self._offset_x = offset_x
+        self._offset_y = offset_y
+        self._primary = primary
+
+    @property
+    def primary(self):
+        return self._primary
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def offset_x(self):
+        return self._offset_x
+
+    @property
+    def offset_y(self):
+        return self._offset_y
+
+
 class ScreenUtils(object):
     @staticmethod
-    def detect_game_window(screen):
-        """Automatically detect game window in full screen capture.
-        Use opencv to find rectangle areas and pick the most likely window.
-        This method returns `Box` object.
-
-        :param screen: `ndarray` containing RGB screen data.
+    def select_screen_area():
+        """Use opencv to select game window from entire screen and return
+        `box` object corresponding to game window.
+        This method uses `selectRoi` method in opencv tracking api.
+        See http://docs.opencv.org/master/d7/dfc/group__highgui.html
+        NOTE that opencv 3.0 (or above) is required.
 
         """
-        pass
+        try:
+            import cv2
+            cv2.selectROI
+        except ImportError:
+            raise ScreenException('opencv is not Found')
+        except AttributeError:
+            raise ScreenException('`selectROI` not found.' +
+                ' Try reinstalling opencv with `--with-contrib` option')
+
+        # 1. Capture entire screen in primary monitor.
+        monitors = ScreenUtils.get_local_monitors()
+        # Use primary monitor to create box
+        box = Box.from_monitor(monitors[0])
+        local_grab = LocalScreenGrab(box)
+        entire_screen = local_grab.grab()
+        entire_screen = entire_screen.reshape(box.numpy_shape)
+
+        # 2. Select game window from entire screen.
+        window_name = 'select_screen_area'
+        region = cv2.selectROI(window_name, entire_screen)
+
+        # `region` is tuple for (x1, y1, x2 - x1, y2 - y1) according to `Box`
+        # coordinate system.
+        return Box(
+            region[0], region[1],
+            region[0] + region[2], region[1] + region[3]
+        )
 
     @staticmethod
-    def detect_primary_game_window():
-        """Detect game window in primary monitor.
-        This method returns `Box` object.
-
-        """
-        pass
+    def get_local_monitors():
+        # We currently use mss().monitors to get monitor information.
+        # mss().monitors[0] is a dict of all monitors together
+        # mss().monitors[N] is a dict of the monitor N (with N > 0)
+        # But we drop the first elem because it's sometimes wrong because of
+        # the bug in mss module.
+        # TODO: Need to cache this property somewhere.
+        mss_monitors = mss().monitors[1:]
+        monitors = []
+        for idx, elem in enumerate(mss_monitors):
+            monitors.append(Monitor(
+                elem['width'],
+                elem['height'],
+                elem['left'],
+                elem['top'],
+                idx == 0
+            ))
+        return monitors
 
 
 class _LocalImpl(object):
@@ -167,9 +265,12 @@ class MssImpl(_LocalImpl):
             # Let's cut the remaining width to get our desired width.
             adjusted_rgb_data = self._executor.grab(monitor_dict).rgb
             rgb_data = bytearray()
+            num_channels = 3
             for idx in range(height):
-                offset = idx * (adjusted_width * 3)
-                rgb_data.extend(adjusted_rgb_data[offset:offset + width * 3])
+                offset = idx * (adjusted_width * num_channels)
+                rgb_data.extend(
+                    adjusted_rgb_data[offset:offset + width * num_channels]
+                )
 
             return rgb_data
         else:
@@ -226,4 +327,15 @@ class LocalScreenGrab(ScreenGrab):
 
     def grab(self):
         return self._impl.read_screen()
+
+
+def stream_local_game_screen(box=None):
+    """Convenient wrapper for screen capture.
+    This method wraps everything which is neeeded to get game screen in
+    primary monitor.
+
+    :param box: If it's None, we
+
+    """
+    pass
 
