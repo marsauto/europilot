@@ -330,12 +330,21 @@ class LocalScreenGrab(ScreenGrab):
 
 
 def stream_local_game_screen(box=None):
-    """Convenient wrapper for screen capture.
-    This method wraps everything which is neeeded to get game screen in
+    """Convenient wrapper for local screen capture.
+    This method wraps everything which is needed to get game screen data in
     primary monitor.
+    It generates RGB numpy array with the shape of (height, width, 3)
+    rather than raw 1 dimensional array because selected image size is not
+    exposed to outside this method.
 
-    :param box: If it's None, we
+    :param box: If it's None, we first select game window area from screen
+    and start streaming inside that box.
+
 
     """
-    pass
+    box = ScreenUtils.select_screen_area()
+    local_grab = LocalScreenGrab(box)
+    while True:
+        screen = local_grab.grab()
+        yield screen.reshape(box.numpy_shape)
 
