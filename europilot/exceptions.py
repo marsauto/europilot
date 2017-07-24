@@ -13,3 +13,7 @@ class EuropilotException(Exception):
 class ScreenException(EuropilotException):
     pass
 
+
+class TrainException(EuropilotException):
+    pass
+
