@@ -129,7 +129,7 @@ class ScreenUtils(object):
     def select_screen_area():
         """Use opencv to select game window from entire screen and return
         `box` object corresponding to game window.
-        This method uses `selectRoi` method in opencv tracking api.
+        This method uses `selectROI` method in opencv tracking api.
         See http://docs.opencv.org/master/d7/dfc/group__highgui.html
         NOTE that opencv 3.0 (or above) is required.
 

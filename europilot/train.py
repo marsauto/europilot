@@ -18,6 +18,7 @@ from PIL import Image
 
 from europilot.exceptions import TrainException
 from europilot.screen import stream_local_game_screen
+from europilot.controllerstate import ControllerState
 
 
 class TrainConfig:
@@ -49,6 +50,11 @@ class Worker(multiprocessing.Process):
         # Unique id for each train.
         self._train_uid = train_uid or hashlib.md5(
             str(datetime.datetime.now())).hexdigest()[:8]
+        self.daemon = True
+
+    @property
+    def train_uid(self):
+        return self._train_uid
 
     def run(self):
         # Init training data csv file.
@@ -85,7 +91,45 @@ class Worker(multiprocessing.Process):
         image = Image.fromarray(image_data, 'RGB')
         image.save(filename + '.' + self._img_ext)
 
-        data = [str(x) for x in sensor_data.keys()]
+        data = [str(x) for x in sensor_data.values()]
         data.insert(0, filename)
         datafile.write(','.join(data) + '\n')
 
+
+def generate_training_data(box=None):
+    """Generate training data.
+
+    """
+    streamer = stream_local_game_screen(box=box)
+    q = multiprocessing.Queue()
+    num_workers = multiprocessing.cpu_count()
+    first_worker = Worker(q)
+    workers = [first_worker]
+    # We should share train_uid between multiple workers
+    for _ in range(num_workers - 1):
+        workers.append(Worker(q, train_uid=first_worker.train_uid))
+
+    # NOTE that these workers are daemonic processes
+    for worker in workers:
+        worker.start()
+
+    # This will start 1 process and 1 thread.
+    controller_state = ControllerState()
+    controller_state.start()
+
+    try:
+        while True:
+            image_data = next(streamer)
+            sensor_data = controller_state.get_state()
+            q.put((image_data, sensor_data))
+    except KeyboardInterrupt:
+        # If `box` is None, area selection window pops up before generation.
+        # Due to bug in cv2.selectROI, the window sometimes hangs ignoring
+        # SIGINT.
+        # TODO: Need to kill it manually so that this process can exit
+        # gracefully.
+        pass
+
+
+if __name__ == '__main__':
+    generate_training_data()
