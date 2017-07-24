@@ -342,7 +342,8 @@ def stream_local_game_screen(box=None):
 
 
     """
-    box = ScreenUtils.select_screen_area()
+    if box is None:
+        box = ScreenUtils.select_screen_area()
     local_grab = LocalScreenGrab(box)
     while True:
         screen = local_grab.grab()
