@@ -5,6 +5,7 @@ from setuptools import setup
 install_requires = [
     'mss==3.0.1',
     'numpy>=1.12.1',
+    'Pillow>=4.2.1'
 ]
 
 about = {}
