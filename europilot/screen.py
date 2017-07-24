@@ -13,7 +13,7 @@ from itertools import count
 import numpy as np
 from mss import mss
 
-from .exceptions import ScreenException
+from europilot.exceptions import ScreenException
 
 
 class Box(object):
