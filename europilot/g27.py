@@ -55,6 +55,9 @@ For Arrow Pad values, the int output range is normalized to [-1, 1]
 
 
 """
+import os
+import time
+import random
 from binascii import hexlify
 
 BUTTON_NAME = """
@@ -188,13 +191,26 @@ class Message(object):
         return ' '.join(map(str, values))
 
 
-def dump_messages(input):
-    with open(input, 'rb') as device:
+def dump_messages(input_):
+    with open(input_, 'rb') as device:
         while True:
             bs = device.read(8)
             message = Message(bs)
-            print message
+            print(message)
+
+
+def dump_dummy_messages():
+    while True:
+        print('wheel-axis ' + str(random.randint(-32767, 32767)))
+        time.sleep(0.01)
 
 
 if __name__ == '__main__':
-    dump_messages('/dev/input/js0')
+    device = '/dev/input/js0'
+    if os.path.exists(device):
+        dump_messages(device)
+    else:
+        # When g27 doesn't exist. Let's dump dummy messages.
+        # TODO: Warn this to stdout so that we can be aware of mock g27.
+        dump_dummy_messages()
+
