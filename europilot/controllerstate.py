@@ -1,3 +1,4 @@
+import os
 import sys
 from subprocess import PIPE, Popen
 from threading import Thread
@@ -15,8 +16,15 @@ class ControllerOutput(object):
         ON_POSIX = 'posix' in sys.builtin_module_names
         # use unbuffered output, since stdout will be generally small
         # https://stackoverflow.com/questions/1410849/bypassing-buffering-of-subprocess-output-with-popen-in-c-or-python
-        self.p = Popen(['python', '-u', 'g27.py'], bufsize=0, stdout=PIPE,
-                       close_fds=ON_POSIX)
+
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        # XXX: This `python` may not be our desired python bin
+        self.p = Popen(
+            ['python', '-u', os.path.join(dir_path, 'g27.py')],
+            bufsize=0,
+            stdout=PIPE,
+            close_fds=ON_POSIX
+        )
         self.q = Queue()
         self.t = Thread(target=self.__enqueue_output,
                         args=(self.p, self.q))
