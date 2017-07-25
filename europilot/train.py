@@ -21,7 +21,8 @@ from europilot.controllerstate import ControllerState
 
 
 class TrainConfig:
-    DATA_PATH = '.'
+    DATA_PATH = 'data/'
+    IMG_PATH = DATA_PATH + 'img/'
     IMG_EXT = 'jpg'
 
 
@@ -47,6 +48,7 @@ class Worker(multiprocessing.Process):
         multiprocessing.Process.__init__(self, name=name)
         self._inq = inq
         self._data_path = get_config_value(config, 'DATA_PATH')
+        self._img_path = get_config_value(config, 'IMG_PATH')
         self._img_ext = get_config_value(config, 'IMG_EXT')
 
         # Unique id for each train.
@@ -88,11 +90,12 @@ class Worker(multiprocessing.Process):
 
         """
         # filename example: '{self._train_uid}_2017_07_24_21_18_46_13.jpg'
-        filename = self._train_uid + '_' + re.sub(
-            '[-:.]', '_', datetime.datetime.now().isoformat('_')[:-4])
+        filename = self._img_path + self._train_uid + '_' + re.sub(
+            '[-:.]', '_', datetime.datetime.now().isoformat('_')[:-4]) + \
+            '.' + self._img_ext
 
         image = Image.fromarray(image_data, 'RGB')
-        image.save(filename + '.' + self._img_ext)
+        image.save(filename)
 
         data = [str(x) for x in sensor_data.values()]
         data.insert(0, filename)
