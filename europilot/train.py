@@ -22,14 +22,21 @@ from europilot.controllerstate import ControllerState
 
 
 class TrainConfig:
-    DATA_PATH = ''
+    DATA_PATH = '.'
     IMG_EXT = 'jpg'
+
+
+def get_config_value(config, key):
+    try:
+        return getattr(config, key)
+    except AttributeError as e:
+        raise TrainException('Invalid configuration: %s' % e.args[0])
 
 
 class Worker(multiprocessing.Process):
     BREAK_FLAG = 'stop_consuming'
 
-    def __init__(self, inq, train_uid=None, config=TrainConfig):
+    def __init__(self, name, inq, train_uid=None, config=TrainConfig):
         """
         :param inq: inbound multiprocessing.Queue
         :param train_uid: If it's not None, csv data will be appended to
@@ -38,15 +45,11 @@ class Worker(multiprocessing.Process):
         class should implement attributes in `TrainConfig`.
 
         """
-        multiprocessing.Process.__init__(self)
+        multiprocessing.Process.__init__(self, name=name)
         self._inq = inq
-        try:
-            self._data_path = getattr(config, 'DATA_PATH')
-            self._img_ext = getattr(config, 'IMG_EXT')
-        except AttributeError as e:
-            raise TrainException('Invalid configuration: %s' % e.args[0])
+        self._data_path = get_config_value(config, 'DATA_PATH')
+        self._img_ext = get_config_value(config, 'IMG_EXT')
 
-        self._datafile_mode = 'a' if train_uid is not None else 'w'
         # Unique id for each train.
         self._train_uid = train_uid or hashlib.md5(
             str(datetime.datetime.now())).hexdigest()[:8]
@@ -57,10 +60,11 @@ class Worker(multiprocessing.Process):
         return self._train_uid
 
     def run(self):
-        # Init training data csv file.
+        # Init training data csv file. NOTE that this file is temporal and
+        # will be removed later on.
         with open(os.path.join(
-                self._data_path, self._train_uid + '.csv'),
-                self._datafile_mode) as datafile:
+                self._data_path, self._train_uid + '_' + self.name + '.csv'),
+                'w') as datafile:
             while True:
                 # Blocking `get`
                 data = self._inq.get()
@@ -96,18 +100,21 @@ class Worker(multiprocessing.Process):
         datafile.write(','.join(data) + '\n')
 
 
-def generate_training_data(box=None):
+def generate_training_data(box=None, config=TrainConfig):
     """Generate training data.
 
     """
     streamer = stream_local_game_screen(box=box)
     q = multiprocessing.Queue()
     num_workers = multiprocessing.cpu_count()
-    first_worker = Worker(q)
+    worker_name = str(0)
+    first_worker = Worker(worker_name, q, config=config)
     workers = [first_worker]
     # We should share train_uid between multiple workers
-    for _ in range(num_workers - 1):
-        workers.append(Worker(q, train_uid=first_worker.train_uid))
+    for i in range(num_workers - 1):
+        worker_name = str(i + 1)
+        workers.append(Worker(
+            worker_name, q, train_uid=first_worker.train_uid))
 
     # NOTE that these workers are daemonic processes
     for worker in workers:
@@ -128,8 +135,47 @@ def generate_training_data(box=None):
         # SIGINT.
         # TODO: Need to kill it manually so that this process can exit
         # gracefully.
-        pass
+
+        # Merge csv files generated from each worker into single file.
+        data_path = get_config_value(config, 'DATA_PATH')
+        csvs = [x for x in
+            os.listdir(data_path)
+            if x.startswith(first_worker.train_uid) and x.endswith('csv')
+        ]
+
+        # We assume that csv data will be small enough to fit into memory.
+        rows = []
+        for csv in csvs:
+            with open(os.path.join(data_path, csv), 'r') as f:
+                chunk = f.read()
+                # Remove last data.
+                # If worker process is interrupted while writing chunk to disk,
+                # last row may or may not be broken. If it's broken, let's drop
+                # it for data consistency. This can also happen in image data.
+                # But we don't have to remove it because the image will never
+                # be used if it's not in csv file.
+                if chunk and chunk[-1] != '\n':
+                    # Broken.
+                    chunk = chunk[:chunk.rfind('\n')]
+                else:
+                    # Use :-1 to remove last newline
+                    chunk = chunk[:-1]
+
+                rows.extend(chunk.split('\n'))
+
+        # Add seq id to rows
+        rows = [str(idx) + ',' + x for idx, x in enumerate(rows)]
+
+        # Remove temporal data files.
+        for csv in csvs:
+            os.remove(csv)
+
+        # Write rows to final data file
+        with open(os.path.join(
+                data_path, first_worker.train_uid + '.csv'), 'w') as f:
+            f.write('\n'.join(rows))
 
 
 if __name__ == '__main__':
     generate_training_data()
+
