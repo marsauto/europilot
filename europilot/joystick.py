@@ -190,6 +190,19 @@ class Message(object):
 
 
 class LinuxVirtualJoystick(object):
+    """
+    A Virtual joystick driver is implemented by attaching userspace device
+    drivers in the kernel by outputting events into udev.
+
+    Relevant information about the virtual driver was derived with evtest.
+
+    A LinuxVirtualJoystick object must be initialized before ETS is started
+    for the game to recognize the virtual driver.
+
+    Note that you may have to adjust the control settings inside ETS to
+    map the events with the necessary values. Check the project page for more
+    details.
+    """
     def __init__(self, name='Virtual G27 Racing Wheel', bustype=0x0003,
                  vendor=0x046d, product=0xc29b, version=0x0111, events=None):
         if events is None:
@@ -220,13 +233,12 @@ class LinuxVirtualJoystick(object):
                 uinput.BTN_TRIGGER_HAPPY7,
 
                 # EV_ABS
-                uinput.ABS_X + (0, 16383, 0, 0),  # steering wheel
-                uinput.ABS_Y + (0, 255, 0, 0),
-                uinput.ABS_Z + (0, 255, 0, 0),
-                uinput.ABS_RZ + (0, 255, 0, 0),
+                uinput.ABS_X + (-32767, 32767, 0, 0),   # steering wheel
+                uinput.ABS_Y + (-32767, 32767, 0, 0),   # clutch
+                uinput.ABS_Z + (-32767, 32767, 0, 0),   # acceleration
+                uinput.ABS_RZ + (-32767, 32767, 0, 0),  # break
                 uinput.ABS_HAT0X + (-1, 1, 0, 0),
                 uinput.ABS_HAT0Y + (-1, 1, 0, 0),
-
             )
 
         self.device = uinput.Device(events,
@@ -236,9 +248,19 @@ class LinuxVirtualJoystick(object):
                                     product=product,
                                     version=version)
 
-    def emit(self):
-        # TODO emit with car state
-        self.device.emit(uinput.ABS_X, random.randint(0, 16383), syn=True)
+    def emit(self, angle, clutch=None, accel=None, brk=None):
+        # emit as one atomic event, by using syn=True at the last emit call
+        # for more information check the source code at
+        # https://github.com/tuomasjjrasanen/python-uinput/blob/master/src/__init__.py#L191
+
+        if clutch:
+            self.device.emit(uinput.ABS_Y, clutch, syn=False)
+        if accel:
+            self.device.emit(uinput.ABS_Z, accel, syn=False)
+        if brk:
+            self.device.emit(uinput.ABS_RZ, brk, syn=False)
+
+        self.device.emit(uinput.ABS_X, angle, syn=True)
 
     def __del__(self):
         self.device.destroy()
