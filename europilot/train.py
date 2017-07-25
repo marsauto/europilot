@@ -152,8 +152,8 @@ def generate_training_data(box=None, config=TrainConfig):
                 # If worker process is interrupted while writing chunk to disk,
                 # last row may or may not be broken. If it's broken, let's drop
                 # it for data consistency. This can also happen in image data.
-                # But we don't have to remove it because the image will never be
-                # used if it's not in csv file.
+                # But we don't have to remove it because the image will never
+                # be used if it's not in csv file.
                 if chunk and chunk[-1] != '\n':
                     # Broken.
                     chunk = chunk[:chunk.rfind('\n')]
@@ -171,7 +171,8 @@ def generate_training_data(box=None, config=TrainConfig):
             os.remove(csv)
 
         # Write rows to final data file
-        with open(os.path.join(data_path, first_worker.train_uid + '.csv'), 'w') as f:
+        with open(os.path.join(
+                data_path, first_worker.train_uid + '.csv'), 'w') as f:
             f.write('\n'.join(rows))
 
 
