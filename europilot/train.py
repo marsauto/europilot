@@ -170,10 +170,15 @@ def generate_training_data(box=None, config=TrainConfig):
 
         # Remove temporal data files.
         for csv in csvs:
-            os.remove(csv)
+            os.remove(os.path.join(data_path, csv))
+
+        # Make header row
+        sensor_header = ','.join(controller_state.get_state().keys())
+        header = 'id,' + 'img,' + sensor_header + '\n'
 
         # Write rows to final data file
         with open(os.path.join(
                 data_path, first_worker.train_uid + '.csv'), 'w') as f:
+            f.write(header)
             f.write('\n'.join(rows))
 
