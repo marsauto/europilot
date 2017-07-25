@@ -56,6 +56,7 @@ For Arrow Pad values, the int output range is normalized to [-1, 1]
 
 """
 import os
+import uinput
 import time
 import random
 from binascii import hexlify
@@ -172,10 +173,6 @@ class Value(Bytewurst):
 
 
 class Message(object):
-
-    FMT_HEX = '%02X'
-    FMT_DEC = '%03d'
-
     def __init__(self, bs):
         self.bs = bs
         self.raw_seq = bs[0:4]
@@ -187,25 +184,79 @@ class Message(object):
         self.button = Button(bs[6:8])
 
     def __repr__(self):
-        values = (self.button.name, self.value.int_normalized(self.button.name))
+        values = (self.button.name,
+                  self.value.int_normalized(self.button.name))
         return ' '.join(map(str, values))
 
 
-def dump_messages(input_):
-    with open(input_, 'rb') as device:
-        while True:
-            bs = device.read(8)
-            message = Message(bs)
-            print(message)
+class VirtualJoystick(object):
+    def __init__(self, name='Virtual G27 Racing Wheel', bustype=0x0003,
+                 vendor=0x046d, product=0xc29b, version=0x0111, events=None):
+        if events is None:
+            events = (
+                # EV_KEY
+                uinput.BTN_TRIGGER,
+                uinput.BTN_THUMB,
+                uinput.BTN_THUMB2,
+                uinput.BTN_TOP,
+                uinput.BTN_TOP2,
+                uinput.BTN_PINKIE,
+                uinput.BTN_BASE,
+                uinput.BTN_BASE2,
+                uinput.BTN_BASE3,
+                uinput.BTN_BASE4,
+                uinput.BTN_BASE5,
+                uinput.BTN_BASE6,
+                (0x01, 0x12c),  # (event code 300)
+                (0x01, 0x12d),  # (event code 301)
+                (0x01, 0x12e),  # (event code 302)
+                uinput.BTN_DEAD,
+                uinput.BTN_TRIGGER_HAPPY1,
+                uinput.BTN_TRIGGER_HAPPY2,
+                uinput.BTN_TRIGGER_HAPPY3,
+                uinput.BTN_TRIGGER_HAPPY4,
+                uinput.BTN_TRIGGER_HAPPY5,
+                uinput.BTN_TRIGGER_HAPPY6,
+                uinput.BTN_TRIGGER_HAPPY7,
 
+                # EV_ABS
+                uinput.ABS_X + (0, 16383, 0, 0),  # steering wheel
+                uinput.ABS_Y + (0, 255, 0, 0),
+                uinput.ABS_Z + (0, 255, 0, 0),
+                uinput.ABS_RZ + (0, 255, 0, 0),
+                uinput.ABS_HAT0X + (-1, 1, 0, 0),
+                uinput.ABS_HAT0Y + (-1, 1, 0, 0),
 
-def dump_dummy_messages():
-    while True:
-        print('wheel-axis ' + str(random.randint(-32767, 32767)))
-        time.sleep(0.01)
+            )
+
+        self.device = uinput.Device(events,
+                                    name=name,
+                                    bustype=bustype,
+                                    vendor=vendor,
+                                    product=product,
+                                    version=version)
+
+    def emit(self):
+        # TODO emit with car state
+        self.device.emit(uinput.ABS_X, random.randint(0, 16383), syn=True)
+
+    def __del__(self):
+        self.device.destroy()
 
 
 if __name__ == '__main__':
+    def dump_messages(input_):
+        with open(input_, 'rb') as device:
+            while True:
+                bs = device.read(8)
+                message = Message(bs)
+                print(message)
+
+    def dump_dummy_messages():
+        while True:
+            print('wheel-axis ' + str(random.randint(-32767, 32767)))
+            time.sleep(0.01)
+
     # TODO: Get device path as argument
     device = '/dev/input/js0'
     if os.path.exists(device):
@@ -214,4 +265,3 @@ if __name__ == '__main__':
         # When g27 doesn't exist. Let's dump dummy messages.
         # TODO: Warn this to stdout so that we can be aware of mock g27.
         dump_dummy_messages()
-
