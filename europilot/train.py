@@ -3,7 +3,6 @@ europilot.train
 ~~~~~~~~~~~~~~~
 
 Utils for generating training data.
-This module will start training immediately if it's executed in command line.
 
 """
 
@@ -174,8 +173,4 @@ def generate_training_data(box=None, config=TrainConfig):
         with open(os.path.join(
                 data_path, first_worker.train_uid + '.csv'), 'w') as f:
             f.write('\n'.join(rows))
-
-
-if __name__ == '__main__':
-    generate_training_data()
 
