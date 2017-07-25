@@ -20,7 +20,7 @@ class ControllerOutput(object):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         # XXX: This `python` may not be our desired python bin
         self.p = Popen(
-            ['python', '-u', os.path.join(dir_path, 'g27.py')],
+            ['python', '-u', os.path.join(dir_path, 'joystick.py')],
             bufsize=0,
             stdout=PIPE,
             close_fds=ON_POSIX
@@ -36,7 +36,6 @@ class ControllerOutput(object):
     def __enqueue_output(self, process, queue):
         """Insert stdout into queue"""
         for line in iter(process.stdout.readline, ''):
-            print("line: %s" % line)
             queue.put(line)
 
         process.stdout.close()

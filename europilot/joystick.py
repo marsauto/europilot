@@ -206,6 +206,7 @@ def dump_dummy_messages():
 
 
 if __name__ == '__main__':
+    # TODO: Get device path as argument
     device = '/dev/input/js0'
     if os.path.exists(device):
         dump_messages(device)
