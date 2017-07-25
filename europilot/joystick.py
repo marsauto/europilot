@@ -56,7 +56,7 @@ For Arrow Pad values, the int output range is normalized to [-1, 1]
 
 """
 import os
-import uinput
+import sys
 import time
 import random
 from binascii import hexlify
@@ -189,7 +189,7 @@ class Message(object):
         return ' '.join(map(str, values))
 
 
-class VirtualJoystick(object):
+class LinuxVirtualJoystick(object):
     def __init__(self, name='Virtual G27 Racing Wheel', bustype=0x0003,
                  vendor=0x046d, product=0xc29b, version=0x0111, events=None):
         if events is None:
@@ -244,15 +244,23 @@ class VirtualJoystick(object):
         self.device.destroy()
 
 
+# Handle platform dependent joystick impl
+if sys.platform.startswith('linux'):
+    import uinput
+    VirtualJoystick = LinuxVirtualJoystick
+elif sys.platform == 'darwin':
+    pass
+
+
 if __name__ == '__main__':
-    def dump_messages(input_):
+    def _dump_messages(input_):
         with open(input_, 'rb') as device:
             while True:
                 bs = device.read(8)
                 message = Message(bs)
                 print(message)
 
-    def dump_dummy_messages():
+    def _dump_dummy_messages():
         while True:
             print('wheel-axis ' + str(random.randint(-32767, 32767)))
             time.sleep(0.01)
@@ -260,8 +268,8 @@ if __name__ == '__main__':
     # TODO: Get device path as argument
     device = '/dev/input/js0'
     if os.path.exists(device):
-        dump_messages(device)
+        _dump_messages(device)
     else:
-        # When g27 doesn't exist. Let's dump dummy messages.
+        # When joystick doesn't exist. Let's dump dummy messages.
         # TODO: Warn this to stdout so that we can be aware of mock g27.
-        dump_dummy_messages()
+        _dump_dummy_messages()
