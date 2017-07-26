@@ -33,21 +33,24 @@ def get_config_value(config, key):
         raise TrainException('Invalid configuration: %s' % e.args[0])
 
 
-class Worker(multiprocessing.Process):
-    BREAK_FLAG = 'stop_consuming'
+_WORKER_BREAK_FLAG = 'stop_consuming'
 
-    def __init__(self, name, inq, train_uid=None, config=TrainConfig):
+
+class Worker(multiprocessing.Process):
+
+    def __init__(self, train_uid, inq, outq, config=TrainConfig):
         """
-        :param inq: inbound multiprocessing.Queue
-        :param train_uid: If it's not None, csv data will be appended to
-        existing data file.
+        :param train_uid: This would be image filename prefix.
+        :param inq: inbound multiprocessing.Queue (main process <-> worker)
+        :param outq: outbound multiprocessing.Queue (worker <-> writer)
         :param config: Config class. Anyone who wants to put custom config
         class should implement attributes in `TrainConfig`.
 
         """
-        multiprocessing.Process.__init__(self, name=name)
+        multiprocessing.Process.__init__(self)
+        self._train_uid = train_uid
         self._inq = inq
-        self._data_path = get_config_value(config, 'DATA_PATH')
+        self._outq = outq
         self._img_path = get_config_value(config, 'IMG_PATH')
         self._img_ext = get_config_value(config, 'IMG_EXT')
 
@@ -61,26 +64,20 @@ class Worker(multiprocessing.Process):
         return self._train_uid
 
     def run(self):
-        # Init training data csv file. NOTE that this file is temporal and
-        # will be removed later on.
-        with open(os.path.join(
-                self._data_path, self._train_uid + '_' + self.name + '.csv'),
-                'w') as datafile:
-            while True:
-                # Blocking `get`
-                data = self._inq.get()
-                if data == self.BREAK_FLAG:
-                    break
+        while True:
+            # Blocking `get`
+            data = self._inq.get()
 
-                image_data, sensor_data = data
-                self._save_data(datafile, image_data, sensor_data)
+            if data == _WORKER_BREAK_FLAG:
+                break
 
-    def _save_data(self, datafile, image_data, sensor_data):
-        """Synchronously write data to disk.
+            image_data, sensor_data = data
+            self._save_image(image_data)
+            self._outq.put(sensor_data)
 
-        :parma datafile: This method will write sensor data to this file.
+    def _save_image(self, image_data):
+        """Synchronously write image data to disk.
         :param image_data: RGB numpy array
-        :param sensor_data: `OrderedDict` containing sensor data
 
         CSV format
         filename,sensor_data1,sensor_data2,sensor_data3,...
@@ -97,9 +94,51 @@ class Worker(multiprocessing.Process):
         image = Image.fromarray(image_data, 'RGB')
         image.save(filename)
 
-        data = [str(x) for x in sensor_data.values()]
-        data.insert(0, filename)
-        datafile.write(','.join(data) + '\n')
+
+class Writer(multiprocessing.Process):
+    def __init__(self, train_uid, inq, config=TrainConfig):
+        multiprocessing.Process.__init__(self)
+        self._train_uid = train_uid
+        self._inq = inq
+        self._data_path = get_config_value(config, 'DATA_PATH')
+        self._data_seq = 0
+        self._csv_initilized = False
+        self._filename = self._train_uid + '.csv'
+
+    @property
+    def filename(self):
+        return self._filename
+
+    def run(self):
+        with open(os.path.join(self._data_path, self._filename), 'w') as file_:
+            while True:
+                sensor_data = self._inq.get()
+
+                if sensor_data == _WORKER_BREAK_FLAG:
+                    break
+
+                self._write(file_, sensor_data)
+
+    def _write(self, file_, sensor_data):
+        """Synchronously write sensor data to disk.
+        :param sensor_data: `dict` containing sensor data.
+
+        CSV format
+        seq_id,filename,sensor_data1,sensor_data2,sensor_data3,...
+
+        Order of sensor data depends on `OrderedDict` defined in
+        `controllerstate.ControllerState`.
+
+        """
+        if not self._csv_initilized:
+            # Add headers
+            sensor_header = ','.join(sensor_data.keys())
+
+        data = ','.join([str(x) for x in sensor_data.values()])
+        # Add seq id
+        data = str(self._data_seq) + ',' + data
+        self._data_seq += 1
+        file_.write(data + '\n')
 
 
 def generate_training_data(box=None, config=TrainConfig):
@@ -107,20 +146,24 @@ def generate_training_data(box=None, config=TrainConfig):
 
     """
     streamer = stream_local_game_screen(box=box)
-    q = multiprocessing.Queue()
+
+    worker_q = multiprocessing.Queue()
+    writer_q = multiprocessing.Queue()
     num_workers = multiprocessing.cpu_count()
-    worker_name = str(0)
-    first_worker = Worker(worker_name, q, config=config)
-    workers = [first_worker]
-    # We should share train_uid between multiple workers
-    for i in range(num_workers - 1):
-        worker_name = str(i + 1)
-        workers.append(Worker(
-            worker_name, q, train_uid=first_worker.train_uid))
+    workers = []
+    train_uid = hashlib.md5(str(datetime.datetime.now())).hexdigest()[:8]
+    for i in range(num_workers):
+        workers.append(
+            Worker(train_uid, worker_q, writer_q)
+        )
 
     # NOTE that these workers are daemonic processes
     for worker in workers:
         worker.start()
+
+    # Start writer
+    writer = Writer(train_uid, writer_q)
+    writer.start()
 
     # This will start 1 process and 1 thread.
     controller_state = ControllerState()
@@ -130,52 +173,35 @@ def generate_training_data(box=None, config=TrainConfig):
         while True:
             image_data = next(streamer)
             sensor_data = controller_state.get_state()
-            q.put((image_data, sensor_data))
+            worker_q.put((image_data, sensor_data))
     except KeyboardInterrupt:
-        # Merge csv files generated from each worker into single file.
-        data_path = get_config_value(config, 'DATA_PATH')
-        csvs = [x for x in
-            os.listdir(data_path)
-            if x.startswith(first_worker.train_uid) and x.endswith('csv')
-        ]
+        # Gracefully stop workers
+        for worker in workers:
+            worker.terminate()
 
-        # We assume that csv data will be small enough to fit into memory.
-        rows = []
-        for csv in csvs:
-            with open(os.path.join(data_path, csv), 'r') as f:
-                chunk = f.read()
-                # Remove last data.
-                # If worker process is interrupted while writing chunk to disk,
-                # last row may or may not be broken. If it's broken, let's drop
-                # it for data consistency. This can also happen in image data.
-                # But we don't have to remove it because the image will never
-                # be used if it's not in csv file.
-                if chunk and chunk[-1] != '\n':
-                    # Broken.
-                    chunk = chunk[:chunk.rfind('\n')]
-                else:
-                    # Use :-1 to remove last newline
-                    chunk = chunk[:-1]
+        for worker in workers:
+            worker.join()
 
-                rows.extend(chunk.split('\n'))
+        writer.terminate()
+        writer.join()
 
-        # remove blank content from rows
-        rows = [x for x in rows if x is x.strip() != '']
+        broken = False
+        data_filepath = os.path.join(
+            get_config_value(config, 'DATA_PATH'), writer.filename)
+        with open(data_filepath, 'r') as f:
+            chunk = f.read()
+            # If worker process is interrupted while writing chunk to disk,
+            # last row may or may not be broken. If it's broken, let's drop
+            # it for data consistency. This can also happen in image data.
+            # But we don't have to remove it because the image will never
+            # be used if it's not in csv file.
+            if chunk and chunk[-1] != '\n':
+                # Broken.
+                broken = True
+                chunk = chunk[:chunk.rfind('\n') + 1]
 
-        # Add seq id to rows
-        rows = [str(idx) + ',' + x for idx, x in enumerate(rows)]
-
-        # Remove temporal data files.
-        for csv in csvs:
-            os.remove(os.path.join(data_path, csv))
-
-        # Make header row
-        sensor_header = ','.join(controller_state.get_state().keys())
-        header = 'id,' + 'img,' + sensor_header + '\n'
-
-        # Write rows to final data file
-        with open(os.path.join(
-                data_path, first_worker.train_uid + '.csv'), 'w') as f:
-            f.write(header)
-            f.write('\n'.join(rows))
+        # XXX: Super inefficient way to remove lastline of a file
+        if broken:
+            with open(data_filepath, 'w') as f:
+                f.write(chunk)
 
