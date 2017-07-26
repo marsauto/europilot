@@ -22,7 +22,7 @@ from europilot.controllerstate import ControllerState
 
 class TrainConfig:
     DATA_PATH = 'data/'
-    IMG_PATH = DATA_PATH + 'img/'
+    IMG_PATH = DATA_PATH + 'img/raw/'
     IMG_EXT = 'jpg'
 
 
@@ -164,6 +164,9 @@ def generate_training_data(box=None, config=TrainConfig):
                     chunk = chunk[:-1]
 
                 rows.extend(chunk.split('\n'))
+
+        # remove blank content from rows
+        rows = [x for x in rows if x is x.strip() != '']
 
         # Add seq id to rows
         rows = [str(idx) + ',' + x for idx, x in enumerate(rows)]
