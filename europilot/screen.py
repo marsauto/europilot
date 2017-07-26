@@ -7,8 +7,12 @@ local/remote machine.
 
 """
 
+import os
+import ast
+import traceback
 from sys import platform
 from itertools import count
+from subprocess import Popen, PIPE
 
 import numpy as np
 from mss import mss
@@ -55,6 +59,15 @@ class Box(object):
         return Box(
             monitor.offset_x, monitor.offset_y,
             monitor.width, monitor.height
+        )
+
+    @staticmethod
+    def from_tuple(tuple_):
+        return Box(
+            tuple_[0],
+            tuple_[1],
+            tuple_[2],
+            tuple_[3]
         )
 
     @property
@@ -343,7 +356,27 @@ def stream_local_game_screen(box=None):
 
     """
     if box is None:
-        box = ScreenUtils.select_screen_area()
+        # Open a new process and get output from stdout
+        # Due to bug in cv2.selectROI, area selection window sometime hangs
+        # until main process exits preventing us from capturing right screen
+        # data. We have to start subprocess to make sure the window to be
+        # closed before we start capturing the screen.
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        subproc = Popen([
+            'python', os.path.join(
+                dir_path, '..', 'scripts/select_screen_area.py')
+        ], stdout=PIPE)
+        output, _ = subproc.communicate()
+
+        try:
+            box_tuple = ast.literal_eval(output.split('\n')[-2])
+        except ValueError:
+            # Something went wrong.
+            traceback.print_exc()
+            raise ScreenException('Failed to get screen area')
+
+        box = Box.from_tuple(box_tuple)
+
     local_grab = LocalScreenGrab(box)
     while True:
         screen = local_grab.grab()
