@@ -50,8 +50,9 @@ Arrow Pad values::
 - off : 00 00
 
 
-For wheel,pedal values, the int output range is normalized to [-32767, 32767]
-For Arrow Pad values, the int output range is normalized to [-1, 1]
+For wheel values, the output range is normalized to [-32767, 32767].
+For pedal values, the output range is normalized to [0, 65535].
+For Arrow Pad values, the output range is normalized to [-1, 1].
 
 
 """
@@ -150,9 +151,9 @@ class Value(Bytewurst):
     def int_normalized(self, name):
         """ Normalizes value to an adequate range
 
-        For wheel, pedal values, the int output range is normalized to
-        [-32767,32767]
-        For Arrow Pad values, the int output range is normalized to [-1, 1]
+        For wheel values, the output range is normalized to [-32767, 32767].
+        For pedal values, the output range is normalized to [0, 65535].
+        For Arrow Pad values, the output range is normalized to [-1, 1].
         """
         v = super(Value, self).int
         if name == 'wheel-axis':
@@ -160,9 +161,9 @@ class Value(Bytewurst):
                 v = v - 65536
         elif name == 'clutch' or name == 'brake' or name == 'gas':
             if v >= 32769:
-                v = -v + 65536
+                v = -v + 98304
             else:
-                v = -v
+                v = -v + 32767
         elif name == 'dpad-left/right' or name == 'dpad-up/down':
             if v == 32769:
                 v = -1
@@ -234,9 +235,9 @@ class LinuxVirtualJoystick(object):
 
                 # EV_ABS
                 uinput.ABS_X + (-32767, 32767, 0, 0),   # steering wheel
-                uinput.ABS_Y + (-32767, 32767, 0, 0),   # clutch
-                uinput.ABS_Z + (-32767, 32767, 0, 0),   # acceleration
-                uinput.ABS_RZ + (-32767, 32767, 0, 0),  # break
+                uinput.ABS_Y + (0, 65535, 0, 0),   # clutch
+                uinput.ABS_Z + (0, 65535, 0, 0),   # acceleration
+                uinput.ABS_RZ + (0, 65535, 0, 0),  # break
                 uinput.ABS_HAT0X + (-1, 1, 0, 0),
                 uinput.ABS_HAT0Y + (-1, 1, 0, 0),
             )

@@ -70,9 +70,9 @@ class ControllerState(object):
         """Initialize the values for each of the controller output"""
         d = OrderedDict()
         d['wheel-axis'] = 0
-        d['clutch'] = -32767
-        d['brake'] = -32767
-        d['gas'] = -32767
+        d['clutch'] = 0
+        d['brake'] = 0
+        d['gas'] = 0
         d['paddle-left'] = 0
         d['paddle-right'] = 0
         d['wheel-button-left-1'] = 0
