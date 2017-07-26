@@ -151,12 +151,12 @@ class Writer(multiprocessing.Process):
 _train_sema = threading.BoundedSemaphore(value=1)
 
 
-def generate_training_data(box=None, config=TrainConfig):
+def generate_training_data(box=None, config=TrainConfig, fps=10):
     """Generate training data.
 
     """
     try:
-        streamer = stream_local_game_screen(box=box)
+        streamer = stream_local_game_screen(box=box, fps=fps)
 
         worker_q = multiprocessing.Queue()
         writer_q = multiprocessing.Queue()

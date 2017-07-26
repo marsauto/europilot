@@ -9,6 +9,7 @@ local/remote machine.
 
 import os
 import ast
+import time
 import traceback
 from sys import platform
 from itertools import count
@@ -342,7 +343,7 @@ class LocalScreenGrab(ScreenGrab):
         return self._impl.read_screen()
 
 
-def stream_local_game_screen(box=None):
+def stream_local_game_screen(box=None, fps=10):
     """Convenient wrapper for local screen capture.
     This method wraps everything which is needed to get game screen data in
     primary monitor.
@@ -377,8 +378,19 @@ def stream_local_game_screen(box=None):
 
         box = Box.from_tuple(box_tuple)
 
+    # We may need to use some epsilon value to meet fps more tightly.
+    time_per_frame = 1.0 / fps
     local_grab = LocalScreenGrab(box)
     while True:
+        start = time.time()
+
         screen = local_grab.grab()
         yield screen.reshape(box.numpy_shape)
+
+        execution_time = time.time() - start
+        if execution_time > time_per_frame:
+            # Too high fps. No need to sleep.
+            pass
+        else:
+            time.sleep(time_per_frame - execution_time)
 
