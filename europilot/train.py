@@ -75,23 +75,24 @@ class Worker(multiprocessing.Process):
                     break
 
                 image_data, sensor_data = data
-                self._save_image(image_data)
-                self._outq.put(sensor_data)
+                filename = self._save_image(image_data)
+                self._outq.put((filename, sensor_data))
             except KeyboardInterrupt:
                 pass
 
     def _save_image(self, image_data):
-        """Synchronously write image data to disk.
+        """Synchronously write image data to disk and returns filename.
         :param image_data: RGB numpy array
 
         """
         # filename example: '{self._train_uid}_2017_07_24_21_18_46_13.jpg'
-        filename = self._img_path + self._train_uid + '_' + re.sub(
+        filename = self._train_uid + '_' + re.sub(
             '[-:.]', '_', datetime.datetime.now().isoformat('_')[:-4]) + \
             '.' + self._img_ext
 
         image = Image.fromarray(image_data, 'RGB')
-        image.save(filename)
+        image.save(os.path.join(self._img_path, filename))
+        return filename
 
 
 class Writer(multiprocessing.Process):
@@ -112,17 +113,18 @@ class Writer(multiprocessing.Process):
         with open(os.path.join(self._data_path, self._filename), 'w') as file_:
             while True:
                 try:
-                    sensor_data = self._inq.get()
-
-                    if sensor_data == _WORKER_BREAK_FLAG:
+                    data = self._inq.get()
+                    if data == _WORKER_BREAK_FLAG:
                         break
+                    image_filename, sensor_data = data
 
-                    self._write(file_, sensor_data)
+                    self._write(file_, image_filename, sensor_data)
                 except KeyboardInterrupt:
                     pass
 
-    def _write(self, file_, sensor_data):
+    def _write(self, file_, image_filename, sensor_data):
         """Synchronously write sensor data to disk.
+        :param image_filename: filename of corresponding training image
         :param sensor_data: `dict` containing sensor data.
 
         CSV format
@@ -135,8 +137,11 @@ class Writer(multiprocessing.Process):
         if not self._csv_initilized:
             # Add headers
             sensor_header = ','.join(sensor_data.keys())
+            file_.write(sensor_header + '\n')
+            self._csv_initilized = True
 
-        data = ','.join([str(x) for x in sensor_data.values()])
+        values = [image_filename] + [str(x) for x in sensor_data.values()]
+        data = ','.join(values)
         # Add seq id
         data = str(self._data_seq) + ',' + data
         self._data_seq += 1
