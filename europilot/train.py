@@ -132,12 +132,6 @@ def generate_training_data(box=None, config=TrainConfig):
             sensor_data = controller_state.get_state()
             q.put((image_data, sensor_data))
     except KeyboardInterrupt:
-        # If `box` is None, area selection window pops up before generation.
-        # Due to bug in cv2.selectROI, the window sometimes hangs ignoring
-        # SIGINT.
-        # TODO: Need to kill it manually so that this process can exit
-        # gracefully.
-
         # Merge csv files generated from each worker into single file.
         data_path = get_config_value(config, 'DATA_PATH')
         csvs = [x for x in
