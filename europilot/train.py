@@ -67,15 +67,18 @@ class Worker(multiprocessing.Process):
 
     def run(self):
         while True:
-            # Blocking `get`
-            data = self._inq.get()
+            try:
+                # Blocking `get`
+                data = self._inq.get()
 
-            if data == _WORKER_BREAK_FLAG:
-                break
+                if data == _WORKER_BREAK_FLAG:
+                    break
 
-            image_data, sensor_data = data
-            self._save_image(image_data)
-            self._outq.put(sensor_data)
+                image_data, sensor_data = data
+                self._save_image(image_data)
+                self._outq.put(sensor_data)
+            except KeyboardInterrupt:
+                pass
 
     def _save_image(self, image_data):
         """Synchronously write image data to disk.
@@ -108,12 +111,15 @@ class Writer(multiprocessing.Process):
     def run(self):
         with open(os.path.join(self._data_path, self._filename), 'w') as file_:
             while True:
-                sensor_data = self._inq.get()
+                try:
+                    sensor_data = self._inq.get()
 
-                if sensor_data == _WORKER_BREAK_FLAG:
-                    break
+                    if sensor_data == _WORKER_BREAK_FLAG:
+                        break
 
-                self._write(file_, sensor_data)
+                    self._write(file_, sensor_data)
+                except KeyboardInterrupt:
+                    pass
 
     def _write(self, file_, sensor_data):
         """Synchronously write sensor data to disk.
@@ -189,6 +195,10 @@ def generate_training_data(box=None, config=TrainConfig):
             pass
 
         # Gracefully stop workers
+        for _ in range(num_workers):
+            worker_q.put(_WORKER_BREAK_FLAG)
+        writer_q.put(_WORKER_BREAK_FLAG)
+
         for worker in workers:
             worker.terminate()
 
