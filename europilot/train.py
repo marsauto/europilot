@@ -79,12 +79,6 @@ class Worker(multiprocessing.Process):
         """Synchronously write image data to disk.
         :param image_data: RGB numpy array
 
-        CSV format
-        filename,sensor_data1,sensor_data2,sensor_data3,...
-
-        Order of sensor data depends on `OrderedDict` defined in
-        `controllerstate.ControllerState`.
-
         """
         # filename example: '{self._train_uid}_2017_07_24_21_18_46_13.jpg'
         filename = self._img_path + self._train_uid + '_' + re.sub(
