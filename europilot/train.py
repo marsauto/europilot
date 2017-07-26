@@ -10,10 +10,12 @@ import os
 import re
 import hashlib
 import datetime
+import threading
 import multiprocessing
 
 import numpy as np
 from PIL import Image
+from pynput import keyboard
 
 from europilot.exceptions import TrainException
 from europilot.screen import stream_local_game_screen
@@ -135,40 +137,57 @@ class Writer(multiprocessing.Process):
         file_.write(data + '\n')
 
 
+_train_sema = threading.BoundedSemaphore(value=1)
+
+
 def generate_training_data(box=None, config=TrainConfig):
     """Generate training data.
 
     """
-    streamer = stream_local_game_screen(box=box)
-
-    worker_q = multiprocessing.Queue()
-    writer_q = multiprocessing.Queue()
-    num_workers = multiprocessing.cpu_count()
-    workers = []
-    train_uid = hashlib.md5(str(datetime.datetime.now())).hexdigest()[:8]
-    for i in range(num_workers):
-        workers.append(
-            Worker(train_uid, worker_q, writer_q)
-        )
-
-    # NOTE that these workers are daemonic processes
-    for worker in workers:
-        worker.start()
-
-    # Start writer
-    writer = Writer(train_uid, writer_q)
-    writer.start()
-
-    # This will start 1 process and 1 thread.
-    controller_state = ControllerState()
-    controller_state.start()
-
     try:
+        streamer = stream_local_game_screen(box=box)
+
+        worker_q = multiprocessing.Queue()
+        writer_q = multiprocessing.Queue()
+        num_workers = multiprocessing.cpu_count()
+        workers = []
+        train_uid = hashlib.md5(str(datetime.datetime.now())).hexdigest()[:8]
+        for i in range(num_workers):
+            workers.append(
+                Worker(train_uid, worker_q, writer_q)
+            )
+
+        # NOTE that these workers are daemonic processes
+        for worker in workers:
+            worker.start()
+
+        # Start writer
+        writer = Writer(train_uid, writer_q)
+        writer.start()
+
+        # This will start 1 process and 1 thread.
+        controller_state = ControllerState()
+        controller_state.start()
+
+        train_controller = TrainController()
+        train_controller.start()
+
         while True:
+            _train_sema.acquire()
             image_data = next(streamer)
             sensor_data = controller_state.get_state()
             worker_q.put((image_data, sensor_data))
+            try:
+                _train_sema.release()
+            except ValueError:
+                pass
     except KeyboardInterrupt:
+        try:
+            _train_sema.release()
+        except ValueError:
+            # Already released.
+            pass
+
         # Gracefully stop workers
         for worker in workers:
             worker.terminate()
@@ -198,4 +217,44 @@ def generate_training_data(box=None, config=TrainConfig):
         if broken:
             with open(data_filepath, 'w') as f:
                 f.write(chunk)
+
+
+class TrainController(threading.Thread):
+    """This thread monitors keyboard input.
+    Keypress `q`: Pause training data generation
+    Keypress `r`: Resume training data generation
+
+    """
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._acquired = False
+
+    def run(self):
+        # Watch keyboard input
+        with keyboard.Listener(
+                on_press=self._dispatcher) as listener:
+            listener.join()
+
+    def _dispatcher(self, key):
+        try:
+            if key.char == 'r':
+                self._resume_data_generation()
+            elif key.char == 'q':
+                self._pause_data_generation()
+        except AttributeError:
+            # Pressed key is not alphabet.
+            pass
+
+    def _pause_data_generation(self):
+        if not self._acquired:
+            _train_sema.acquire()
+            self._acquired = True
+
+    def _resume_data_generation(self):
+        try:
+            _train_sema.release()
+            self._acquired = False
+        except ValueError:
+            pass
 
