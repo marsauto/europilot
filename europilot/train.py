@@ -213,26 +213,6 @@ def generate_training_data(box=None, config=TrainConfig, fps=10):
         writer.terminate()
         writer.join()
 
-        broken = False
-        data_filepath = os.path.join(
-            get_config_value(config, 'DATA_PATH'), writer.filename)
-        with open(data_filepath, 'r') as f:
-            chunk = f.read()
-            # If worker process is interrupted while writing chunk to disk,
-            # last row may or may not be broken. If it's broken, let's drop
-            # it for data consistency. This can also happen in image data.
-            # But we don't have to remove it because the image will never
-            # be used if it's not in csv file.
-            if chunk and chunk[-1] != '\n':
-                # Broken.
-                broken = True
-                chunk = chunk[:chunk.rfind('\n') + 1]
-
-        # XXX: Super inefficient way to remove lastline of a file
-        if broken:
-            with open(data_filepath, 'w') as f:
-                f.write(chunk)
-
 
 class TrainController(threading.Thread):
     """This thread monitors keyboard input.
