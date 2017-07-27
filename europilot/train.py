@@ -137,7 +137,8 @@ class Writer(multiprocessing.Process):
         if not self._csv_initilized:
             # Add headers
             sensor_header = ','.join(sensor_data.keys())
-            file_.write(sensor_header + '\n')
+            csv_header = 'id,img,' + sensor_header
+            file_.write(csv_header + '\n')
             self._csv_initilized = True
 
         values = [image_filename] + [str(x) for x in sensor_data.values()]
