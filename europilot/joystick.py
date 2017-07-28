@@ -284,8 +284,27 @@ if __name__ == '__main__':
                 print(message)
 
     def _dump_dummy_messages():
+        # Need to simulate straight wheel axis to test realtime fps adjustment.
+        straight = False
+        straight_start_time = None
+        straight_duration = 5
         while True:
-            print('wheel-axis ' + str(random.randint(-32767, 32767)))
+            if not straight and random.randint(0, 99) == 0:
+                # Straight wheel axis for 3 secs.
+                straight = True
+                straight_start_time = time.time()
+
+            if straight and \
+                    time.time() - straight_start_time > straight_duration:
+                # End of straight wheel axis
+                straight = False
+                straight_start_time = None
+
+            # Axis value 0 will be regarded as straight wheel regardless of
+            # `train.FpsAdjuster._max_straight_wheel_axis`.
+            wheel_axis = random.randint(-32767, 32767) if not straight else 0
+
+            print('wheel-axis ' + str(wheel_axis))
             time.sleep(0.01)
 
     # TODO: Get device path as argument
