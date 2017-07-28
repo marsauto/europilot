@@ -14,7 +14,6 @@ import datetime
 import threading
 import multiprocessing
 
-import numpy as np
 from PIL import Image
 from pynput import keyboard
 
@@ -58,8 +57,7 @@ class Worker(multiprocessing.Process):
         self._img_ext = get_config_value(config, 'IMG_EXT')
 
         # Unique id for each train.
-        self._train_uid = train_uid or hashlib.md5(
-            str(datetime.datetime.now())).hexdigest()[:8]
+        self._train_uid = train_uid
         self.daemon = True
 
     @property
@@ -103,15 +101,22 @@ class Writer(multiprocessing.Process):
         self._inq = inq
         self._data_path = get_config_value(config, 'DATA_PATH')
         self._data_seq = 0
-        self._csv_initilized = False
+        self._csv_initialized = False
         self._filename = self._train_uid + '.csv'
 
     @property
     def filename(self):
         return self._filename
 
+    def _get_file_mode(self, f):
+        if os.path.isfile(f):
+            return 'a'
+        else:
+            return 'w'
+
     def run(self):
-        with open(os.path.join(self._data_path, self._filename), 'w') as file_:
+        f = os.path.join(self._data_path, self._filename)
+        with open(f, self._get_file_mode(f)) as file_:
             while True:
                 try:
                     data = self._inq.get()
@@ -135,12 +140,12 @@ class Writer(multiprocessing.Process):
         `controllerstate.ControllerState`.
 
         """
-        if not self._csv_initilized:
+        if not self._csv_initialized:
             # Add headers
             sensor_header = ','.join(sensor_data.keys())
             csv_header = 'id,img,' + sensor_header
             file_.write(csv_header + '\n')
-            self._csv_initilized = True
+            self._csv_initialized = True
 
         values = [image_filename] + [str(x) for x in sensor_data.values()]
         data = ','.join(values)
@@ -148,10 +153,15 @@ class Writer(multiprocessing.Process):
         data = str(self._data_seq) + ',' + data
         self._data_seq += 1
         file_.write(data + '\n')
+
+
 _train_sema = threading.BoundedSemaphore(value=1)
 
 
-def generate_training_data(box=None, config=TrainConfig, default_fps=10):
+def generate_training_data(box=None,
+                           train_uid=None,
+                           config=TrainConfig,
+                           default_fps=10):
     """Generate training data.
 
     """
@@ -162,7 +172,11 @@ def generate_training_data(box=None, config=TrainConfig, default_fps=10):
         writer_q = multiprocessing.Queue()
         num_workers = multiprocessing.cpu_count()
         workers = []
-        train_uid = hashlib.md5(str(datetime.datetime.now())).hexdigest()[:8]
+
+        if train_uid is None:
+            d = str(datetime.datetime.now())
+            train_uid = hashlib.md5(d).hexdigest()[:8]
+
         for i in range(num_workers):
             workers.append(
                 Worker(train_uid, worker_q, writer_q)
@@ -303,4 +317,3 @@ class FpsAdjuster(object):
         elif not going_straight:
             self._last_straight_time = None
         # If last_controller_state is not None and going_straight, do nothing
-
