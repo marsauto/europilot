@@ -69,35 +69,35 @@ class ControllerState(object):
     def __init_dict(self):
         """Initialize the values for each of the controller output"""
         d = OrderedDict()
-        d['wheel-axis'] = 0
-        d['clutch'] = 0
-        d['brake'] = 0
-        d['gas'] = 0
-        d['paddle-left'] = 0
-        d['paddle-right'] = 0
-        d['wheel-button-left-1'] = 0
-        d['wheel-button-left-2'] = 0
-        d['wheel-button-left-3'] = 0
-        d['wheel-button-right-1'] = 0
-        d['wheel-button-right-2'] = 0
-        d['wheel-button-right-3'] = 0
-        d['shifter-button-left'] = 0
-        d['shifter-button-right'] = 0
-        d['shifter-button-up'] = 0
-        d['shifter-button-down'] = 0
-        d['dpad-left/right'] = 0
-        d['dpad-up/down'] = 0
-        d['shifter-button-1'] = 0
-        d['shifter-button-2'] = 0
-        d['shifter-button-3'] = 0
-        d['shifter-button-4'] = 0
-        d['gear-1'] = 0
-        d['gear-2'] = 0
-        d['gear-3'] = 0
-        d['gear-4'] = 0
-        d['gear-5'] = 0
-        d['gear-6'] = 0
-        d['gear-R'] = 0
+        d['wheel-axis'] = '0'
+        d['clutch'] = '0'
+        d['brake'] = '0'
+        d['gas'] = '0'
+        d['paddle-left'] = '0'
+        d['paddle-right'] = '0'
+        d['wheel-button-left-1'] = '0'
+        d['wheel-button-left-2'] = '0'
+        d['wheel-button-left-3'] = '0'
+        d['wheel-button-right-1'] = '0'
+        d['wheel-button-right-2'] = '0'
+        d['wheel-button-right-3'] = '0'
+        d['shifter-button-left'] = '0'
+        d['shifter-button-right'] = '0'
+        d['shifter-button-up'] = '0'
+        d['shifter-button-down'] = '0'
+        d['dpad-left/right'] = '0'
+        d['dpad-up/down'] = '0'
+        d['shifter-button-1'] = '0'
+        d['shifter-button-2'] = '0'
+        d['shifter-button-3'] = '0'
+        d['shifter-button-4'] = '0'
+        d['gear-1'] = '0'
+        d['gear-2'] = '0'
+        d['gear-3'] = '0'
+        d['gear-4'] = '0'
+        d['gear-5'] = '0'
+        d['gear-6'] = '0'
+        d['gear-R'] = '0'
 
         return d
 
