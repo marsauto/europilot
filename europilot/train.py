@@ -8,6 +8,7 @@ Utils for generating training data.
 
 import os
 import re
+import time
 import hashlib
 import datetime
 import threading
@@ -147,17 +148,15 @@ class Writer(multiprocessing.Process):
         data = str(self._data_seq) + ',' + data
         self._data_seq += 1
         file_.write(data + '\n')
-
-
 _train_sema = threading.BoundedSemaphore(value=1)
 
 
-def generate_training_data(box=None, config=TrainConfig, fps=10):
+def generate_training_data(box=None, config=TrainConfig, default_fps=10):
     """Generate training data.
 
     """
     try:
-        streamer = stream_local_game_screen(box=box, fps=fps)
+        streamer = stream_local_game_screen(box=box, default_fps=default_fps)
 
         worker_q = multiprocessing.Queue()
         writer_q = multiprocessing.Queue()
@@ -173,21 +172,33 @@ def generate_training_data(box=None, config=TrainConfig, fps=10):
         for worker in workers:
             worker.start()
 
-        # Start writer
+        # Start 1 process
         writer = Writer(train_uid, writer_q)
         writer.start()
 
-        # This will start 1 process and 1 thread.
+        # Start 1 process and 1 thread.
         controller_state = ControllerState()
         controller_state.start()
 
+        # Start 1 thread
         train_controller = TrainController()
         train_controller.start()
 
+        fps_adjuster = FpsAdjuster(default_fps)
+        last_sensor_data = None
+
         while True:
             _train_sema.acquire()
-            image_data = next(streamer)
+
+            if last_sensor_data is None:
+                # Start generator
+                image_data = next(streamer)
+            else:
+                image_data = streamer.send(
+                    fps_adjuster.get_next_fps(last_sensor_data))
+
             sensor_data = controller_state.get_state()
+            last_sensor_data = sensor_data
             worker_q.put((image_data, sensor_data))
             try:
                 _train_sema.release()
@@ -253,4 +264,43 @@ class TrainController(threading.Thread):
             self._acquired = False
         except ValueError:
             pass
+
+
+class FpsAdjuster(object):
+    def __init__(self, default_fps):
+        self._default_fps = default_fps
+        self._adjust_factor = 2
+        self._duration_threshold = 2
+        self._max_straight_wheel_axis = 10
+        self._last_straight_time = None
+
+    def get_next_fps(self, sensor_data):
+        """Adjust fps according to wheel axis
+        We want to reduce fps when the car is going straight longer than
+        threshold seconds.
+
+        """
+        going_straight = self._going_straight(sensor_data['wheel-axis'])
+        if self._last_straight_time is None:
+            self._update_last_straight_time(going_straight)
+            return self._default_fps
+
+        straight_duration = time.time() - self._last_straight_time
+        if going_straight and \
+                straight_duration > self._duration_threshold:
+            # Adjust fps
+            return max(self._default_fps / self._adjust_factor, 1)
+        else:
+            self._update_last_straight_time(going_straight)
+            return self._default_fps
+
+    def _going_straight(self, wheel_axis):
+        return abs(int(wheel_axis)) < self._max_straight_wheel_axis
+
+    def _update_last_straight_time(self, going_straight):
+        if self._last_straight_time is None and going_straight:
+            self._last_straight_time = time.time()
+        elif not going_straight:
+            self._last_straight_time = None
+        # If last_controller_state is not None and going_straight, do nothing
 

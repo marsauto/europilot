@@ -343,7 +343,7 @@ class LocalScreenGrab(ScreenGrab):
         return self._impl.read_screen()
 
 
-def stream_local_game_screen(box=None, fps=10):
+def stream_local_game_screen(box=None, default_fps=10):
     """Convenient wrapper for local screen capture.
     This method wraps everything which is needed to get game screen data in
     primary monitor.
@@ -353,7 +353,8 @@ def stream_local_game_screen(box=None, fps=10):
 
     :param box: If it's None, we first select game window area from screen
     and start streaming inside that box.
-
+    :param default_fps: Target fps for screen capture. NOTE that this value
+    can be adjusted from other coroutine.
 
     """
     if box is None:
@@ -379,13 +380,16 @@ def stream_local_game_screen(box=None, fps=10):
         box = Box.from_tuple(box_tuple)
 
     # We may need to use some epsilon value to meet fps more tightly.
-    time_per_frame = 1.0 / fps
+    time_per_frame = 1.0 / default_fps
     local_grab = LocalScreenGrab(box)
     while True:
         start = time.time()
 
         screen = local_grab.grab()
-        yield screen.reshape(box.numpy_shape)
+        target_fps = yield screen.reshape(box.numpy_shape)
+        if target_fps is not None:
+            # Change fps accordingly
+            time_per_frame = 1.0 / target_fps
 
         execution_time = time.time() - start
         if execution_time > time_per_frame:
