@@ -290,7 +290,7 @@ if __name__ == '__main__':
         straight_duration = 5
         while True:
             if not straight and random.randint(0, 99) == 0:
-                # Straight wheel axis for 3 secs.
+                # Straight wheel axis for 5 secs.
                 straight = True
                 straight_start_time = time.time()
 
