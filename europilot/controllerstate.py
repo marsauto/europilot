@@ -112,12 +112,46 @@ class ControllerState(object):
                 self.state[k] = v
 
     def get_state(self):
-        """returns the latest state"""
+        """Returns the latest state"""
         self.__update_state()
         return self.state
 
+    def get_state_obj(self):
+        """Returns the latest `SensorData` object"""
+        return SensorData.from_ordered_dict(self.get_state())
+
     def get_state_json(self):
-        """returns the latest state in json format"""
+        """Returns the latest state in json format"""
         self.__update_state()
         j = json.dumps(self.state)
         return j
+
+
+class SensorData(object):
+    def __init__(self, data):
+        """Constructor.
+        :param data: `OrderedDict` containing sensor data.
+
+        """
+        self._data = data
+
+    @staticmethod
+    def from_ordered_dict(dict_):
+        return SensorData(dict_)
+
+    @property
+    def raw(self):
+        return self._data
+
+    @property
+    def wheel_axis(self):
+        return self._data['wheel-axis']
+
+    @property
+    def resume_button_pressed(self):
+        return self._data['wheel-button-right-1'] == 1
+
+    @property
+    def pause_button_pressed(self):
+        return self._data['wheel-button-left-1'] == 1
+

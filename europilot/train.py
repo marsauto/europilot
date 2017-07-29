@@ -13,6 +13,7 @@ import hashlib
 import datetime
 import threading
 import multiprocessing
+from Queue import Queue
 
 import numpy as np
 from PIL import Image
@@ -126,7 +127,7 @@ class Writer(multiprocessing.Process):
     def _write(self, file_, image_filename, sensor_data):
         """Synchronously write sensor data to disk.
         :param image_filename: filename of corresponding training image
-        :param sensor_data: `dict` containing sensor data.
+        :param sensor_data: `SensorData` object.
 
         CSV format
         seq_id,filename,sensor_data1,sensor_data2,sensor_data3,...
@@ -137,22 +138,28 @@ class Writer(multiprocessing.Process):
         """
         if not self._csv_initilized:
             # Add headers
-            sensor_header = ','.join(sensor_data.keys())
+            sensor_header = ','.join(sensor_data.raw.keys())
             csv_header = 'id,img,' + sensor_header
             file_.write(csv_header + '\n')
             self._csv_initilized = True
 
-        values = [image_filename] + [str(x) for x in sensor_data.values()]
+        values = [image_filename] + [str(x) for x in sensor_data.raw.values()]
         data = ','.join(values)
         # Add seq id
         data = str(self._data_seq) + ',' + data
         self._data_seq += 1
         file_.write(data + '\n')
+
+
 _train_sema = threading.BoundedSemaphore(value=1)
 
 
-def generate_training_data(box=None, config=TrainConfig, default_fps=10):
+def generate_training_data(
+        box=None, config=TrainConfig, default_fps=10, wait_keypress=False):
     """Generate training data.
+
+    :param wait_keypress: If this is True, do not start training until start
+    key (keyboard `r`, wheel `left button 1`) is pressed.
 
     """
     try:
@@ -181,13 +188,26 @@ def generate_training_data(box=None, config=TrainConfig, default_fps=10):
         controller_state.start()
 
         # Start 1 thread
-        train_controller = TrainController()
+        control_q = Queue()
+        train_controller = TrainController(control_q)
         train_controller.start()
+
+        # Start 1 thread
+        keyboard_listener = KeyListener(control_q)
+        keyboard_listener.start()
 
         fps_adjuster = FpsAdjuster(default_fps)
         last_sensor_data = None
 
+        if wait_keypress:
+            if box is None:
+                # Select area and drop first screen image.
+                next(streamer)
+            _train_sema.acquire()
+
         while True:
+            # TODO: Do something to resolve this in python 2.x
+            # https://bugs.python.org/issue8844
             _train_sema.acquire()
 
             if last_sensor_data is None:
@@ -197,9 +217,12 @@ def generate_training_data(box=None, config=TrainConfig, default_fps=10):
                 image_data = streamer.send(
                     fps_adjuster.get_next_fps(last_sensor_data))
 
-            sensor_data = controller_state.get_state()
+            sensor_data = controller_state.get_state_obj()
             last_sensor_data = sensor_data
             worker_q.put((image_data, sensor_data))
+
+            _feed_control_signal(control_q, sensor_data=sensor_data)
+
             try:
                 _train_sema.release()
             except ValueError:
@@ -210,6 +233,8 @@ def generate_training_data(box=None, config=TrainConfig, default_fps=10):
         except ValueError:
             # Already released.
             pass
+
+        train_controller.put(_WORKER_BREAK_FLAG)
 
         # Gracefully stop workers
         for _ in range(num_workers):
@@ -226,32 +251,77 @@ def generate_training_data(box=None, config=TrainConfig, default_fps=10):
         writer.join()
 
 
+def _feed_control_signal(q, key_value=None, sensor_data=None):
+    """Parse device (keyboard, wheel) input to control signal and
+    feed it into `TrainController` thread.
+    If both devices put input simultaneously, key_value is ignored.
+
+    :param q: `Queue` between main thread and `TrainController` thread.
+    :param key_value: Keyboard input
+    :param sensor_data: `SensorData` object
+
+    """
+    control_signal = None
+
+    if key_value is not None:
+        if key_value == 'r':
+            control_signal = TrainController.RESUME_SIGNAL
+        elif key_value == 'q':
+            control_signal = TrainController.PAUSE_SIGNAL
+
+    if sensor_data is not None:
+        if sensor_data.resume_button_pressed:
+            control_signal = TrainController.RESUME_SIGNAL
+        elif sensor_data.pause_button_pressed:
+            control_signal = TrainController.PAUSE_SIGNAL
+
+    if control_signal is not None:
+        q.put(control_signal)
+
+
+class KeyListener(keyboard.Listener):
+    def __init__(self, outq):
+        """Constructor.
+        :param outq: `Queue` between this thread and `TrainController` thread.
+
+        `keyboard.Listener` is a daemon thread by default.
+
+        """
+        self._outq = outq
+        super(KeyListener, self).__init__(on_press=self._on_press)
+
+    def _on_press(self, key):
+        try:
+            _feed_control_signal(self._outq, key_value=key.char)
+        except AttributeError:
+            # Pressed key is not alphabet.
+            pass
+
+
 class TrainController(threading.Thread):
     """This thread monitors keyboard input.
     Keypress `q`: Pause training data generation
     Keypress `r`: Resume training data generation
 
     """
-    def __init__(self):
+    PAUSE_SIGNAL = 'pause'
+    RESUME_SIGNAL = 'resume'
+
+    def __init__(self, inq):
         threading.Thread.__init__(self)
         self.daemon = True
+        self._inq = inq
         self._acquired = False
 
     def run(self):
-        # Watch keyboard input
-        with keyboard.Listener(
-                on_press=self._dispatcher) as listener:
-            listener.join()
-
-    def _dispatcher(self, key):
-        try:
-            if key.char == 'r':
+        while True:
+            signal = self._inq.get()
+            if signal == self.RESUME_SIGNAL:
                 self._resume_data_generation()
-            elif key.char == 'q':
+            elif signal == self.PAUSE_SIGNAL:
                 self._pause_data_generation()
-        except AttributeError:
-            # Pressed key is not alphabet.
-            pass
+            elif signal == _WORKER_BREAK_FLAG:
+                break
 
     def _pause_data_generation(self):
         if not self._acquired:
@@ -279,8 +349,10 @@ class FpsAdjuster(object):
         We want to reduce fps when the car is going straight longer than
         threshold seconds.
 
+        :param sensor_data: `controllerstate.SensorData` object.
+
         """
-        going_straight = self._going_straight(sensor_data['wheel-axis'])
+        going_straight = self._going_straight(sensor_data.wheel_axis)
         if self._last_straight_time is None:
             self._update_last_straight_time(going_straight)
             return self._default_fps
