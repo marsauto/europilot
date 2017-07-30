@@ -23,17 +23,36 @@ from europilot.screen import stream_local_game_screen
 from europilot.controllerstate import ControllerState
 
 
-class TrainConfig:
+class _ConfigType(type):
+    def __getattr__(self, attr):
+        raise TrainException('Invalid configuration: %s' % attr)
+
+
+class Config(object):
+    """Default configuration.
+    Anyone who wants to use custom configuration should inherit this class.
+
+    :attr BOX: `screen.Box` object indicating capture area.
+    :attr DATA_PATH: Csv file path.
+    :attr IMG_PATH: Image file path.
+    :attr IMG_EXT: Image file extension.
+    :attr TRAIN_UID: If it's not None, file existing csv file with a name
+    starts with `train_uid` and add data to that file.
+    :attr DEFAULT_FPS: Default target fps for screen capture.
+    :attr WAIT_KEYPRESS: If this is True, do not start training until start
+    key (keyboard `r`, wheel `left button 1`) is pressed.
+    :attr DEBUG: If this is True, write debug msg to stdout.
+
+    """
+    __metaclass__ = _ConfigType
+    BOX = None
     DATA_PATH = 'data/'
     IMG_PATH = DATA_PATH + 'img/raw/'
     IMG_EXT = 'jpg'
-
-
-def get_config_value(config, key):
-    try:
-        return getattr(config, key)
-    except AttributeError as e:
-        raise TrainException('Invalid configuration: %s' % e.args[0])
+    TRAIN_UID = None
+    DEFAULT_FPS = 10
+    WAIT_KEYPRESS = False
+    DEBUG = True
 
 
 _WORKER_BREAK_FLAG = 'stop_consuming'
@@ -41,24 +60,19 @@ _WORKER_BREAK_FLAG = 'stop_consuming'
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, train_uid, inq, outq, config=TrainConfig):
+    def __init__(self, train_uid, inq, outq):
         """
         :param train_uid: This would be image filename prefix.
         :param inq: inbound multiprocessing.Queue (main process <-> worker)
         :param outq: outbound multiprocessing.Queue (worker <-> writer)
-        :param config: Config class. Anyone who wants to put custom config
-        class should implement attributes in `TrainConfig`.
 
         """
         multiprocessing.Process.__init__(self)
         self._train_uid = train_uid
         self._inq = inq
         self._outq = outq
-        self._img_path = get_config_value(config, 'IMG_PATH')
-        self._img_ext = get_config_value(config, 'IMG_EXT')
-
-        # Unique id for each train.
-        self._train_uid = train_uid
+        self._img_path = _global_config.IMG_PATH
+        self._img_ext = _global_config.IMG_EXT
         self.daemon = True
 
     @property
@@ -96,11 +110,11 @@ class Worker(multiprocessing.Process):
 
 
 class Writer(multiprocessing.Process):
-    def __init__(self, train_uid, inq, config=TrainConfig):
+    def __init__(self, train_uid, inq):
         multiprocessing.Process.__init__(self)
         self._train_uid = train_uid
         self._inq = inq
-        self._data_path = get_config_value(config, 'DATA_PATH')
+        self._data_path = _global_config.DATA_PATH
         self._data_seq = 0
         self._csv_initialized = False
         self._filename = self._train_uid + '.csv'
@@ -151,26 +165,31 @@ class Writer(multiprocessing.Process):
 
 
 _train_sema = threading.BoundedSemaphore(value=1)
+_global_config = Config
 
 
-def generate_training_data(
-        box=None, train_uid=None, config=TrainConfig,
-        default_fps=10, wait_keypress=False):
+def generate_training_data(config=Config):
     """Generate training data.
 
-    :param wait_keypress: If this is True, do not start training until start
-    key (keyboard `r`, wheel `left button 1`) is pressed.
+    :param config: Training configuration class
 
     """
     try:
-        streamer = stream_local_game_screen(box=box, default_fps=default_fps)
+        # Set global config so that other workers can access it directly.
+        global _global_config
+        _global_config = config
+
+        streamer = stream_local_game_screen(
+            box=config.BOX, default_fps=config.DEFAULT_FPS)
 
         worker_q = multiprocessing.Queue()
         writer_q = multiprocessing.Queue()
         num_workers = multiprocessing.cpu_count()
         workers = []
 
+        train_uid = config.TRAIN_UID
         if train_uid is None:
+            # Generate train_uid to start new data generation.
             d = str(datetime.datetime.now())
             train_uid = hashlib.md5(d).hexdigest()[:8]
 
@@ -193,18 +212,18 @@ def generate_training_data(
 
         # Start 1 thread
         control_q = Queue()
-        train_controller = TrainController(control_q)
+        train_controller = FlowController(control_q)
         train_controller.start()
 
         # Start 1 thread
         keyboard_listener = KeyListener(control_q)
         keyboard_listener.start()
 
-        fps_adjuster = FpsAdjuster(default_fps)
+        fps_adjuster = FpsAdjuster()
         last_sensor_data = None
 
-        if wait_keypress:
-            if box is None:
+        if config.WAIT_KEYPRESS:
+            if config.BOX is None:
                 # Select area and drop first screen image.
                 next(streamer)
             _train_sema.acquire()
@@ -257,10 +276,10 @@ def generate_training_data(
 
 def _feed_control_signal(q, key_value=None, sensor_data=None):
     """Parse device (keyboard, wheel) input to control signal and
-    feed it into `TrainController` thread.
+    feed it into `FlowController` thread.
     If both devices put input simultaneously, key_value is ignored.
 
-    :param q: `Queue` between main thread and `TrainController` thread.
+    :param q: `Queue` between main thread and `FlowController` thread.
     :param key_value: Keyboard input
     :param sensor_data: `SensorData` object
 
@@ -269,15 +288,15 @@ def _feed_control_signal(q, key_value=None, sensor_data=None):
 
     if key_value is not None:
         if key_value == 'r':
-            control_signal = TrainController.RESUME_SIGNAL
+            control_signal = FlowController.RESUME_SIGNAL
         elif key_value == 'q':
-            control_signal = TrainController.PAUSE_SIGNAL
+            control_signal = FlowController.PAUSE_SIGNAL
 
     if sensor_data is not None:
         if sensor_data.resume_button_pressed:
-            control_signal = TrainController.RESUME_SIGNAL
+            control_signal = FlowController.RESUME_SIGNAL
         elif sensor_data.pause_button_pressed:
-            control_signal = TrainController.PAUSE_SIGNAL
+            control_signal = FlowController.PAUSE_SIGNAL
 
     if control_signal is not None:
         q.put(control_signal)
@@ -286,7 +305,7 @@ def _feed_control_signal(q, key_value=None, sensor_data=None):
 class KeyListener(keyboard.Listener):
     def __init__(self, outq):
         """Constructor.
-        :param outq: `Queue` between this thread and `TrainController` thread.
+        :param outq: `Queue` between this thread and `FlowController` thread.
 
         `keyboard.Listener` is a daemon thread by default.
 
@@ -302,10 +321,9 @@ class KeyListener(keyboard.Listener):
             pass
 
 
-class TrainController(threading.Thread):
-    """This thread monitors keyboard input.
-    Keypress `q`: Pause training data generation
-    Keypress `r`: Resume training data generation
+class FlowController(threading.Thread):
+    """This thread controls data generation process by parsing signal from
+    input devices.
 
     """
     PAUSE_SIGNAL = 'pause'
@@ -341,8 +359,8 @@ class TrainController(threading.Thread):
 
 
 class FpsAdjuster(object):
-    def __init__(self, default_fps):
-        self._default_fps = default_fps
+    def __init__(self):
+        self._default_fps = _global_config.DEFAULT_FPS
         self._adjust_factor = 2
         self._duration_threshold = 2
         self._max_straight_wheel_axis = 10
