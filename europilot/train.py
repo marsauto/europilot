@@ -58,6 +58,11 @@ class Config(object):
 _WORKER_BREAK_FLAG = 'stop_consuming'
 
 
+def _print(text):
+    if _global_config.DEBUG:
+        print(text)
+
+
 class Worker(multiprocessing.Process):
 
     def __init__(self, train_uid, inq, outq):
@@ -134,6 +139,15 @@ class Writer(multiprocessing.Process):
                     image_filename, sensor_data = data
 
                     self._write(file_, image_filename, sensor_data)
+
+                    if self._data_seq % 10 == 0:
+                        _print('seq: %s, filename: %s, datetime: %s' %
+                            (
+                                self._data_seq,
+                                image_filename,
+                                str(datetime.datetime.now())
+                            )
+                        )
                 except KeyboardInterrupt:
                     pass
 
@@ -346,11 +360,13 @@ class FlowController(threading.Thread):
                 break
 
     def _pause_data_generation(self):
+        _print('Data generation paused')
         if not self._acquired:
             _train_sema.acquire()
             self._acquired = True
 
     def _resume_data_generation(self):
+        _print('Data generation resumed')
         try:
             _train_sema.release()
             self._acquired = False
