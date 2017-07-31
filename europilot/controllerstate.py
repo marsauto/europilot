@@ -48,14 +48,9 @@ class ControllerOutput(object):
         return self._controller_state.get_state_obj()
 
     def __update_state(self, process):
-        buf_size = 10
-        message = []
         for line in iter(process.stdout.readline, ''):
-            message.append(line.strip())
-            if len(message) == buf_size:
-                self._controller_state.update_state(message)
-                self._state_listener(self._controller_state.get_state_obj())
-                message = []
+            self._controller_state.update_state(line.strip())
+            self._state_listener(self._controller_state.get_state_obj())
 
         process.stdout.close()
 
@@ -106,14 +101,11 @@ class ControllerState(object):
 
         return d
 
-    def update_state(self, output):
+    def update_state(self, msg):
         """Update ControllerState with the latest controller data"""
-        # iterate through all of the stdout from beginning to end.
-        for msg in output:
-            msg = msg.split(' ')
-            k, v = msg[0], msg[1]
-            if k in self.state:
-                self.state[k] = v
+        k, v = msg.split()
+        if k in self.state:
+            self.state[k] = v
 
     def get_state(self):
         """Returns the latest state"""
