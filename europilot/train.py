@@ -20,7 +20,7 @@ from pynput import keyboard
 
 from europilot.exceptions import TrainException
 from europilot.screen import stream_local_game_screen
-from europilot.controllerstate import ControllerState
+from europilot.controllerstate import ControllerOutput
 
 
 class _ConfigType(type):
@@ -219,14 +219,16 @@ def generate_training_data(config=Config):
         writer = Writer(train_uid, writer_q, csv_initialized)
         writer.start()
 
-        # Start 1 process and 1 thread.
-        controller_state = ControllerState()
-        controller_state.start()
-
         # Start 1 thread
         control_q = Queue()
-        train_controller = FlowController(control_q)
-        train_controller.start()
+        flow_controller = FlowController(control_q)
+        flow_controller.start()
+
+        # Start 1 process and 1 thread.
+        state_listener = lambda x: \
+            _feed_control_signal(control_q, sensor_data=x)
+        controller_output = ControllerOutput(state_listener=state_listener)
+        controller_output.start()
 
         # Start 1 thread
         keyboard_listener = KeyListener(control_q)
@@ -242,6 +244,10 @@ def generate_training_data(config=Config):
             _train_sema.acquire()
 
         while True:
+            if flow_controller.acquired:
+                # Switch context and give flow_controller time to acquire sema.
+                time.sleep(0.1)
+
             # TODO: Do something to resolve this in python 2.x
             # https://bugs.python.org/issue8844
             _train_sema.acquire()
@@ -253,11 +259,9 @@ def generate_training_data(config=Config):
                 image_data = streamer.send(
                     fps_adjuster.get_next_fps(last_sensor_data))
 
-            sensor_data = controller_state.get_state_obj()
+            sensor_data = controller_output.get_latest_state_obj()
             last_sensor_data = sensor_data
             worker_q.put((image_data, sensor_data))
-
-            _feed_control_signal(control_q, sensor_data=sensor_data)
 
             try:
                 _train_sema.release()
@@ -271,6 +275,7 @@ def generate_training_data(config=Config):
             pass
 
         control_q.put(_WORKER_BREAK_FLAG)
+        controller_output.terminate()
 
         # Gracefully stop workers
         for _ in range(num_workers):
@@ -348,6 +353,10 @@ class FlowController(threading.Thread):
         self._inq = inq
         self._acquired = False
 
+    @property
+    def acquired(self):
+        return self._acquired
+
     def run(self):
         while True:
             signal = self._inq.get()
@@ -361,8 +370,8 @@ class FlowController(threading.Thread):
     def _pause_data_generation(self):
         _print('Data generation paused')
         if not self._acquired:
-            _train_sema.acquire()
             self._acquired = True
+            _train_sema.acquire()
 
     def _resume_data_generation(self):
         _print('Data generation resumed')
