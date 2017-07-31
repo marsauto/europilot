@@ -222,8 +222,8 @@ def generate_training_data(config=Config):
 
         # Start 1 thread
         control_q = Queue()
-        train_controller = FlowController(control_q)
-        train_controller.start()
+        flow_controller = FlowController(control_q)
+        flow_controller.start()
 
         # Start 1 process and 1 thread.
         state_listener = lambda x: \
@@ -245,6 +245,10 @@ def generate_training_data(config=Config):
             _train_sema.acquire()
 
         while True:
+            if flow_controller.acquired:
+                # Switch context and give flow_controller time to acquire sema.
+                time.sleep(0.1)
+
             # TODO: Do something to resolve this in python 2.x
             # https://bugs.python.org/issue8844
             _train_sema.acquire()
@@ -350,6 +354,10 @@ class FlowController(threading.Thread):
         self._inq = inq
         self._acquired = False
 
+    @property
+    def acquired(self):
+        return self._acquired
+
     def run(self):
         while True:
             signal = self._inq.get()
@@ -363,8 +371,8 @@ class FlowController(threading.Thread):
     def _pause_data_generation(self):
         _print('Data generation paused')
         if not self._acquired:
-            _train_sema.acquire()
             self._acquired = True
+            _train_sema.acquire()
 
     def _resume_data_generation(self):
         _print('Data generation resumed')

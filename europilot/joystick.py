@@ -305,7 +305,6 @@ if __name__ == '__main__':
             wheel_axis = random.randint(-32767, 32767) if not straight else 0
 
             print('wheel-axis ' + str(wheel_axis))
-            time.sleep(0.01)
 
     # TODO: Get device path as argument
     device = '/dev/input/js0'
