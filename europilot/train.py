@@ -20,7 +20,7 @@ from pynput import keyboard
 
 from europilot.exceptions import TrainException
 from europilot.screen import stream_local_game_screen
-from europilot.controllerstate import ControllerState
+from europilot.controllerstate import ControllerOutput
 
 
 class _ConfigType(type):
@@ -220,14 +220,16 @@ def generate_training_data(config=Config):
         writer = Writer(train_uid, writer_q)
         writer.start()
 
-        # Start 1 process and 1 thread.
-        controller_state = ControllerState()
-        controller_state.start()
-
         # Start 1 thread
         control_q = Queue()
         train_controller = FlowController(control_q)
         train_controller.start()
+
+        # Start 1 process and 1 thread.
+        state_listener = lambda x: \
+            _feed_control_signal(control_q, sensor_data=x)
+        controller_output = ControllerOutput(state_listener=state_listener)
+        controller_output.start()
 
         # Start 1 thread
         keyboard_listener = KeyListener(control_q)
@@ -254,11 +256,9 @@ def generate_training_data(config=Config):
                 image_data = streamer.send(
                     fps_adjuster.get_next_fps(last_sensor_data))
 
-            sensor_data = controller_state.get_state_obj()
+            sensor_data = controller_output.get_latest_state_obj()
             last_sensor_data = sensor_data
             worker_q.put((image_data, sensor_data))
-
-            _feed_control_signal(control_q, sensor_data=sensor_data)
 
             try:
                 _train_sema.release()
@@ -272,6 +272,7 @@ def generate_training_data(config=Config):
             pass
 
         control_q.put(_WORKER_BREAK_FLAG)
+        controller_output.terminate()
 
         # Gracefully stop workers
         for _ in range(num_workers):

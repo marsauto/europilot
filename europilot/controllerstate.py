@@ -8,51 +8,60 @@ from collections import OrderedDict
 
 
 class ControllerOutput(object):
-    """
-    Reads stdout from G27.py, to get the controller event outputs without
+    """Reads stdout from joystick.py, to get the controller event outputs without
     blocking.
+
     """
-    def __init__(self):
+    def __init__(self, state_listener=None):
+        """Constructor.
+
+        :param state_listener: Listener which takes single `SensorData` param.
+
+        """
+        self._controller_state = ControllerState()
+        self._state_listener = state_listener
+
+    def start(self):
         ON_POSIX = 'posix' in sys.builtin_module_names
         # use unbuffered output, since stdout will be generally small
         # https://stackoverflow.com/questions/1410849/bypassing-buffering-of-subprocess-output-with-popen-in-c-or-python
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         # XXX: This `python` may not be our desired python bin
+
+
         self.p = Popen(
             ['python', '-u', os.path.join(dir_path, 'joystick.py')],
             bufsize=0,
             stdout=PIPE,
             close_fds=ON_POSIX
         )
-        self.q = Queue()
-        self.t = Thread(target=self.__enqueue_output,
-                        args=(self.p, self.q))
+        self.t = Thread(target=self.__update_state,
+                        args=(self.p,))
         self.t.daemon = True  # thread dies with program
-
-    def start(self):
         self.t.start()
 
-    def __enqueue_output(self, process, queue):
-        """Insert stdout into queue"""
+    def terminate(self):
+        self.p.terminate()
+
+    def get_latest_state_obj(self):
+        return self._controller_state.get_state_obj()
+
+    def __update_state(self, process):
+        buf_size = 10
+        message = []
         for line in iter(process.stdout.readline, ''):
-            queue.put(line)
+            message.append(line.strip())
+            if len(message) == buf_size:
+                self._controller_state.update_state(message)
+                self._state_listener(self._controller_state.get_state_obj())
+                message = []
 
         process.stdout.close()
 
-    def get_output(self):
-        """Append all of the items in the queue
-            >>> c.get_output()
-            >>> ['wheel-axis  256', 'wheel-axis  252', 'wheel-axis  244']
-        """
-        message = []
-        for _ in range(0, self.q.qsize()):
-            message.append(self.q.get().strip())
-        return message
-
 
 class ControllerState(object):
-    """
+    """Thread-safe controller state.
     Holds the latest value of each of the controller output value.
         >>> c = ControllerState()
         >>> c.start()
@@ -60,11 +69,7 @@ class ControllerState(object):
         OrderedDict([('wheel-axis', '1012'), ('clutch', '-27865'),...]
     """
     def __init__(self):
-        self.output = ControllerOutput()
         self.state = self.__init_dict()
-
-    def start(self):
-        self.output.start()
 
     def __init_dict(self):
         """Initialize the values for each of the controller output"""
@@ -101,11 +106,10 @@ class ControllerState(object):
 
         return d
 
-    def __update_state(self):
+    def update_state(self, output):
         """Update ControllerState with the latest controller data"""
-        o = self.output.get_output()
         # iterate through all of the stdout from beginning to end.
-        for msg in o:
+        for msg in output:
             msg = msg.split(' ')
             k, v = msg[0], msg[1]
             if k in self.state:
@@ -113,7 +117,6 @@ class ControllerState(object):
 
     def get_state(self):
         """Returns the latest state"""
-        self.__update_state()
         return self.state
 
     def get_state_obj(self):
@@ -122,7 +125,6 @@ class ControllerState(object):
 
     def get_state_json(self):
         """Returns the latest state in json format"""
-        self.__update_state()
         j = json.dumps(self.state)
         return j
 
