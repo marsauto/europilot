@@ -136,7 +136,7 @@ class Button(Bytewurst):
         super(Button, self).__init__(bs)
         button_namedict = dict(line.split('=') for line in
                                BUTTON_NAME.strip().split('\n'))
-        self.name = button_namedict.get(self.hexLE, 'UNKNOWN: %s' % self.hexLE)
+        self.name = button_namedict.get(self.hexLE, 'UNKNOWN:%s' % self.hexLE)
 
 
 class Value(Bytewurst):

@@ -143,9 +143,9 @@ class SensorData(object):
 
     @property
     def resume_button_pressed(self):
-        return self._data['wheel-button-right-1'] == 1
+        return self._data['wheel-button-right-1'] == '1'
 
     @property
     def pause_button_pressed(self):
-        return self._data['wheel-button-left-1'] == 1
+        return self._data['wheel-button-left-1'] == '1'
 
