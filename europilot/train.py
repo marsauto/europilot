@@ -115,13 +115,13 @@ class Worker(multiprocessing.Process):
 
 
 class Writer(multiprocessing.Process):
-    def __init__(self, train_uid, inq):
+    def __init__(self, train_uid, inq, csv_initialized=False):
         multiprocessing.Process.__init__(self)
         self._train_uid = train_uid
         self._inq = inq
         self._data_path = _global_config.DATA_PATH
         self._data_seq = 0
-        self._csv_initialized = False
+        self._csv_initialized = csv_initialized
         self._filename = self._train_uid + '.csv'
 
     @property
@@ -166,14 +166,12 @@ class Writer(multiprocessing.Process):
         if not self._csv_initialized:
             # Add headers
             sensor_header = ','.join(sensor_data.raw.keys())
-            csv_header = 'id,img,' + sensor_header
+            csv_header = 'img,' + sensor_header
             file_.write(csv_header + '\n')
             self._csv_initialized = True
 
         values = [image_filename] + [str(x) for x in sensor_data.raw.values()]
         data = ','.join(values)
-        # Add seq id
-        data = str(self._data_seq) + ',' + data
         self._data_seq += 1
         file_.write(data + '\n')
 
@@ -202,6 +200,7 @@ def generate_training_data(config=Config):
         workers = []
 
         train_uid = config.TRAIN_UID
+        csv_initialized = train_uid is not None
         if train_uid is None:
             # Generate train_uid to start new data generation.
             d = str(datetime.datetime.now())
@@ -217,7 +216,7 @@ def generate_training_data(config=Config):
             worker.start()
 
         # Start 1 process
-        writer = Writer(train_uid, writer_q)
+        writer = Writer(train_uid, writer_q, csv_initialized)
         writer.start()
 
         # Start 1 thread
