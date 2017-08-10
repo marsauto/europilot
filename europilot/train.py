@@ -46,8 +46,8 @@ class Config(object):
     """
     __metaclass__ = _ConfigType
     BOX = None
-    DATA_PATH = 'data/'
-    IMG_PATH = DATA_PATH + 'img/raw/'
+    DATA_PATH = os.path.join('data', 'csv')
+    IMG_PATH = os.path.join('data', 'img', 'raw')
     IMG_EXT = 'jpg'
     TRAIN_UID = None
     DEFAULT_FPS = 10
