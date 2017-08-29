@@ -2,12 +2,8 @@
 
 ## Overview
 <div align = 'center'>
-    <video width="280" controls>
-        <source src="examples/day.mp4" type="video/mp4">
-    </video>
-    <video width="280" controls>
-        <source src="examples/night.mp4" type="video/mp4">
-    </video>
+	<img src = 'examples/day.gif' width='280'>
+	<img src = 'examples/night.gif' width='280'>
 </div>
 
 EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programatically control the truck inside the simulator. 
