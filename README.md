@@ -1,12 +1,13 @@
 # EuroPilot
 
 ## Overview
-<div align = 'center'>
-	<img src = 'examples/day.gif' width='280'>
-	<img src = 'examples/night.gif' width='280'>
-</div>
 
-EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programatically control the truck inside the simulator. 
+![alt tag](examples/day.gif)
+![alt tag](examples/night.gif)
+
+
+
+EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programatically control the truck inside the simulator. 
 
 EuroPilot can be used in one of two ways: training or testing. 
 
@@ -52,26 +53,35 @@ Europilot captures the screen input, therefore technically it is game agnostic. 
 
 * Fun: Having a large dataset is critical to developing a good model. Therefore you, as a developer, have to play many hours of whatever game you target. Fortunately, ETS2 is fun to play!
 
+## Documentation
 
-## Running the tests
+We are working on it.
 
-Explain how to run the automated tests for this system
+## Compatibility
 
-### Break down into end to end tests
+Europilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
 
-Explain what these tests test and why
+## How to Contribute
 
-```
-Give an example
-```
+Any contribution regarding new feature, bug fix and documentation is welcomed.
 
-### And coding style tests
+But we highly recommend you to read this guideline before you make a pull request.
 
-Explain what these tests test and why
+### Coding convention
 
-```
-Give an example
-```
+We generally follow PEP8 with few additional conventions.
+
+* Line-length can exceed 79 characters, to 100 in case of comments.
+* Always use single-quoted strings, unless a single-quote occurs within the string.
+* Docstrings use double-quote.
+
+### Roadmap
+
+Feature roadmap includes
+
+* A
+* B
+* C
 
 ## License
 
