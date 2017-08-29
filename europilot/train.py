@@ -226,9 +226,9 @@ def generate_training_data(config=Config):
         flow_controller.start()
 
         # Start 1 process and 1 thread.
-        state_listener = lambda x: \
-            _feed_control_signal(control_q, sensor_data=x)
-        controller_output = ControllerOutput(state_listener=state_listener)
+        def _state_listener(sensor_data):
+            _feed_control_signal(control_q, sensor_data=sensor_data)
+        controller_output = ControllerOutput(state_listener=_state_listener)
         controller_output.start()
 
         # Start 1 thread

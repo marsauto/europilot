@@ -16,4 +16,3 @@ if is_py2:
     from Queue import Queue
 elif is_py3:
     from queue import Queue
-

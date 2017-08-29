@@ -6,6 +6,7 @@ Defines custom exceptions
 
 """
 
+
 class EuropilotException(Exception):
     pass
 
@@ -16,4 +17,3 @@ class ScreenException(EuropilotException):
 
 class TrainException(EuropilotException):
     pass
-

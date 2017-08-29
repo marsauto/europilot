@@ -1,7 +1,6 @@
-from controllerstate import ControllerState
 import threading
-import sys
-from subprocess import PIPE, Popen
+
+from europilot.controllerstate import ControllerState
 
 if __name__ == '__main__':
     c = ControllerState()

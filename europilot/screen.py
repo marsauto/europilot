@@ -238,6 +238,7 @@ class MssImpl(_LocalImpl):
             # image size in retina display.
             # We fix this by hooking that function directly.
             orig_func = self._executor.core.CGWindowListCreateImage
+
             def _hook(screen_bounds, list_option, window_id, image_option):
                 norminal_resolution = 1 << 4
                 return orig_func(
@@ -397,4 +398,3 @@ def stream_local_game_screen(box=None, default_fps=10):
             pass
         else:
             time.sleep(time_per_frame - execution_time)
-

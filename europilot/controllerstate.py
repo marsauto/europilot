@@ -5,8 +5,6 @@ from subprocess import PIPE, Popen
 from threading import Thread
 from collections import OrderedDict
 
-from europilot.compat import Queue
-
 
 class ControllerOutput(object):
     """Reads stdout from joystick.py, to get the controller event outputs without
@@ -26,11 +24,9 @@ class ControllerOutput(object):
         ON_POSIX = 'posix' in sys.builtin_module_names
         # use unbuffered output, since stdout will be generally small
         # https://stackoverflow.com/questions/1410849/bypassing-buffering-of-subprocess-output-with-popen-in-c-or-python
-
         dir_path = os.path.dirname(os.path.realpath(__file__))
+
         # XXX: This `python` may not be our desired python bin
-
-
         self.p = Popen(
             ['python', '-u', os.path.join(dir_path, 'joystick.py')],
             bufsize=0,
@@ -149,4 +145,3 @@ class SensorData(object):
     @property
     def pause_button_pressed(self):
         return self._data['wheel-button-left-1'] == '1'
-
