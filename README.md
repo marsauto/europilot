@@ -31,9 +31,29 @@ First, clone the project
 git clone https://github.com/marshq/europilot
 ```
 
-Install prerequisite libraries
+If you want to install EuroPilot locally,
 
-Add training instructions
+```
+python setup.py install
+```
+
+You can also install prerequisite libraries and do something directly in this project path.
+
+```
+pip install -r requirements.txt
+python
+```
+```python
+>>> import europilot
+>>> europilot.__version__
+'0.0.1'
+```
+
+To start generating training data, check out [generate_training_data.py](scripts/generate_training_data.py) in the scripts directory.
+
+NOTE that `opencv` compiled with `opencv_contrib` module is required to use screen selection gui.
+
+Otherwise, you should specify a screen area in which will be captured by assigning custom `Box` object to `train.Config.BOX`.
 
 For running inference on the model, check out [inference.ipynb](scripts/inference.ipynb) in the scripts directory.
 
@@ -43,7 +63,7 @@ For running inference on the model, check out [inference.ipynb](scripts/inferenc
 
 ## Why Euro Truck Simulator 2?
 
-Europilot captures the screen input, therefore technically it is game agnostic. We chose ETS2 as our first target for several reasons.
+EuroPilot captures the screen input, therefore technically it is game agnostic. We chose ETS2 as our first target for several reasons.
 
 * Multi platform support: ETS2 supports Windows, OS X, and Linux. Developers can run the game in a Macbook, or in a Ubuntu workstation. This put ETS2 ahead of games such as GTAV.
 
@@ -59,7 +79,7 @@ We are working on it.
 
 ## Compatibility
 
-Europilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
+EuroPilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
 
 ## How to Contribute
 
