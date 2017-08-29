@@ -1,10 +1,11 @@
 import os
 import sys
+import json
 from subprocess import PIPE, Popen
 from threading import Thread
-from Queue import Queue
-import json
 from collections import OrderedDict
+
+from europilot.compat import Queue
 
 
 class ControllerOutput(object):

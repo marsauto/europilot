@@ -13,11 +13,11 @@ import hashlib
 import datetime
 import threading
 import multiprocessing
-from Queue import Queue
 
 from PIL import Image
 from pynput import keyboard
 
+from europilot.compat import Queue
 from europilot.exceptions import TrainException
 from europilot.screen import stream_local_game_screen
 from europilot.controllerstate import ControllerOutput
@@ -203,7 +203,8 @@ def generate_training_data(config=Config):
         csv_initialized = train_uid is not None
         if train_uid is None:
             # Generate train_uid to start new data generation.
-            d = str(datetime.datetime.now())
+            # Call `encode` because hashlib in python3 doesn't accept unicode.
+            d = str(datetime.datetime.now()).encode('utf8')
             train_uid = hashlib.md5(d).hexdigest()[:8]
 
         for i in range(num_workers):
