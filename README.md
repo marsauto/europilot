@@ -79,9 +79,10 @@ We generally follow PEP8 with few additional conventions.
 
 Feature roadmap includes
 
-* A
-* B
-* C
+* Run ETS2 on virtual machine and train/test a model remotely
+* Web leaderboard
+* Capture custom(ex. left, right side cam) vision data while driving in ETS2
+* Support reinforcement learning workflow which is simliar to openai universe
 
 ## License
 
