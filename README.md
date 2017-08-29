@@ -28,7 +28,7 @@ For testing, EuroPilot can create a virtual joystick driver that can be recogniz
 First, clone the project
 
 ```
-git clone https://github.com/marshq/europilot
+git clone git@github.com:marshq/europilot.git
 ```
 
 If you want to install EuroPilot locally,
