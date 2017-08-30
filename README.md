@@ -7,7 +7,7 @@
 
 
 
-EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programatically control the truck inside the simulator. 
+EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programmatically control the truck inside the simulator. 
 
 EuroPilot can be used in one of two ways: training or testing. 
 
@@ -19,7 +19,7 @@ For training, EuroPliot can capture the screen input and ouput a numpy array in 
 In the csv file, each row has the screenshot filename with the joystick values. 
 </p>
 
-For testing, EuroPilot can create a virtual joystick driver that can be recognized inside the game, which can be used to programatically control the truck. Using this joystick, you can create a real-time inference network that uses the game screen as the input, and outputs the relevant joystick commands, such as steering. 
+For testing, EuroPilot can create a virtual joystick driver that can be recognized inside the game, which can be used to programmatically control the truck. Using this joystick, you can create a real-time inference network that uses the game screen as the input, and outputs the relevant joystick commands, such as steering. 
 
 [Click to see an example demo on YouTube.](https://www.youtube.com/watch?v=n2pPR3WLaxI)
 
@@ -28,7 +28,7 @@ For testing, EuroPilot can create a virtual joystick driver that can be recogniz
 First, clone the project
 
 ```
-git clone https://github.com/marshq/europilot
+git clone git@github.com:marshq/europilot.git
 ```
 
 If you want to install EuroPilot locally,
@@ -55,11 +55,19 @@ NOTE that `opencv` compiled with `opencv_contrib` module is required to use scre
 
 Otherwise, you should specify a screen area in which will be captured by assigning custom `Box` object to `train.Config.BOX`.
 
-For running inference on the model, check out [inference.ipynb](scripts/inference.ipynb) in the scripts directory.
+After the generation of training data is finished, you may want to manually inspect each image to check if unwanted data was recorded. Check [clean_up.ipynb](scripts/01.clean_up.ipynb) for a simple script to remove unwanted data together with the accompanying row in the csv file. Also check out [preprocess.ipynb](scripts/02.preprocess.ipynb) and [get_mean_std.ipynb](scripts/03.get_mean_std.ipynb) for an example code to preprocess the data.
+
+[PilotNet.ipynb](scripts/04.PilotNet.ipynb) is an implementation of Mariusz Bojarski's [End to End Learning for Self-Driving Cars](https://arxiv.org/abs/1604.07316), with slight differences. The demo shown above was created with the following notebook.
+
+For running inference on the model, check out [inference.ipynb](scripts/04.inference.ipynb) in the scripts directory.
 
 ## General Architecture
 
-쓸까말까...
+EuroPilot hides the complexity of capturing the screen data and joystick data with a simplified interface. Internally, the joystick datastream is parsed into a machine readable format, which for us was a Logitech G27. If you have a different joystick, modify [joystick.py](europilot/joystick.py) to your needs.
+
+We currently have [example notebooks](scripts/) implemented with Keras. We hope to add more examples in other popular frameworks.
+
+A virtual joystick driver is implemented by attaching userspace drivers in the kernel, by outputting events into udev. This driver can be recognized inside ETS2. Please note that the driver must be initialized before the game is started, or else it will not show up in the controller page.
 
 ## Why Euro Truck Simulator 2?
 
@@ -75,7 +83,7 @@ EuroPilot captures the screen input, therefore technically it is game agnostic. 
 
 ## Documentation
 
-We are working on it.
+For now, refer to the README and the source code.
 
 ## Compatibility
 
@@ -103,6 +111,7 @@ Feature roadmap includes
 * Web leaderboard
 * Capture custom(ex. left, right side cam) vision data while driving in ETS2
 * Support reinforcement learning workflow which is simliar to openai universe
+* Windows support, if there is demand.
 
 ## License
 
