@@ -2,12 +2,15 @@
 
 ## Overview
 
+Europilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms.
+
 ![alt tag](examples/day.gif)
 ![alt tag](examples/night.gif)
+<p align = 'center'>
+A convolutional neural network (CNN) controls the steering wheel inside ETS2.
+</p>
 
-
-
-Europilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of europilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With europilot, you can capture the game screen input, and programmatically control the truck inside the simulator. 
+Think of europilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With europilot, you can capture the game screen input, and programmatically control the truck inside the simulator. 
 
 Europilot can be used in one of two ways: training or testing. 
 
