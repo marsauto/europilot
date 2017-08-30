@@ -191,6 +191,12 @@ def generate_training_data(config=Config):
         global _global_config
         _global_config = config
 
+        # Check if data paths exist and are writable.
+        if not os.access(config.DATA_PATH, os.W_OK):
+            raise TrainException('Invalid data path: %s' % config.DATA_PATH)
+        if not os.access(config.IMG_PATH, os.W_OK):
+            raise TrainException('Invalid image path: %s' % config.IMG_PATH)
+
         streamer = stream_local_game_screen(
             box=config.BOX, default_fps=config.DEFAULT_FPS)
 
