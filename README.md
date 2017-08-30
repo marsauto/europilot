@@ -59,12 +59,15 @@ After the generation of training data is finished, you may want to manually insp
 
 [PilotNet.ipynb](scripts/04.PilotNet.ipynb) is an implementation of Mariusz Bojarski's [End to End Learning for Self-Driving Cars](https://arxiv.org/abs/1604.07316), with slight differences. The demo shown above was created with the following notebook.
 
-
 For running inference on the model, check out [inference.ipynb](scripts/04.inference.ipynb) in the scripts directory.
 
 ## General Architecture
 
-쓸까말까...
+EuroPilot hides the complexity of capturing the screen data and joystick data with a simplified interface. Internally, the joystick datastream is parsed into a machine readable format, which for us was a Logitech G27. If you have a different joystick, modify [joystick.py](europilot/joystick.py) to your needs.
+
+We currently have [example notebooks](scripts/) implemented with Keras. We hope to add more examples in other popular frameworks.
+
+A virtual joystick driver is implemented by attaching userspace drivers in the kernel, by outputting events into udev. This driver can be recognized inside ETS2. Please note that the driver must be initialized before the game is started, or else it will not show up in the controller page.
 
 ## Why Euro Truck Simulator 2?
 
@@ -80,7 +83,7 @@ EuroPilot captures the screen input, therefore technically it is game agnostic. 
 
 ## Documentation
 
-We are working on it.
+For now, refer to the README and the source code.
 
 ## Compatibility
 
@@ -108,6 +111,7 @@ Feature roadmap includes
 * Web leaderboard
 * Capture custom(ex. left, right side cam) vision data while driving in ETS2
 * Support reinforcement learning workflow which is simliar to openai universe
+* Windows support, if there is demand.
 
 ## License
 
