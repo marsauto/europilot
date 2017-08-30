@@ -1,4 +1,4 @@
-# EuroPilot
+# europilot
 
 ## Overview
 
@@ -7,9 +7,9 @@
 
 
 
-EuroPilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of EuroPilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With EuroPilot, you can capture the game screen input, and programmatically control the truck inside the simulator. 
+Europilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms. Think of europilot as a bridge between the game environment, and your favorite deep-learning framework, such as Keras or Tensorflow. With europilot, you can capture the game screen input, and programmatically control the truck inside the simulator. 
 
-EuroPilot can be used in one of two ways: training or testing. 
+Europilot can be used in one of two ways: training or testing. 
 
 For training, EuroPliot can capture the screen input and ouput a numpy array in realtime, while simultaenously getting the wheel-joystick values. The mapping between the relevant screenshot and the joystick values is written inside a csv file.
 <div align = 'center'>
@@ -19,7 +19,7 @@ For training, EuroPliot can capture the screen input and ouput a numpy array in 
 In the csv file, each row has the screenshot filename with the joystick values. 
 </p>
 
-For testing, EuroPilot can create a virtual joystick driver that can be recognized inside the game, which can be used to programmatically control the truck. Using this joystick, you can create a real-time inference network that uses the game screen as the input, and outputs the relevant joystick commands, such as steering. 
+For testing, europilot can create a virtual joystick driver that can be recognized inside the game, which can be used to programmatically control the truck. Using this joystick, you can create a real-time inference network that uses the game screen as the input, and outputs the relevant joystick commands, such as steering. 
 
 [Click to see an example demo on YouTube.](https://www.youtube.com/watch?v=n2pPR3WLaxI)
 
@@ -31,7 +31,7 @@ First, clone the project
 git clone git@github.com:marshq/europilot.git
 ```
 
-If you want to install EuroPilot locally,
+If you want to install europilot locally,
 
 ```
 python setup.py install
@@ -63,7 +63,7 @@ For running inference on the model, check out [inference.ipynb](scripts/04.infer
 
 ## General Architecture
 
-EuroPilot hides the complexity of capturing the screen data and joystick data with a simplified interface. Internally, the joystick datastream is parsed into a machine readable format, which for us was a Logitech G27. If you have a different joystick, modify [joystick.py](europilot/joystick.py) to your needs.
+Europilot hides the complexity of capturing the screen data and joystick data with a simplified interface. Internally, the joystick datastream is parsed into a machine readable format, which for us was a Logitech G27. If you have a different joystick, modify [joystick.py](europilot/joystick.py) to your needs.
 
 We currently have [example notebooks](scripts/) implemented with Keras. We hope to add more examples in other popular frameworks.
 
@@ -71,7 +71,7 @@ A virtual joystick driver is implemented by attaching userspace drivers in the k
 
 ## Why Euro Truck Simulator 2?
 
-EuroPilot captures the screen input, therefore technically it is game agnostic. We chose ETS2 as our first target for several reasons.
+Europilot captures the screen input, therefore technically it is game agnostic. We chose ETS2 as our first target for several reasons.
 
 * Multi platform support: ETS2 supports Windows, OS X, and Linux. Developers can run the game in a Macbook, or in a Ubuntu workstation. This put ETS2 ahead of games such as GTAV.
 
@@ -87,7 +87,7 @@ For now, refer to the README and the source code.
 
 ## Compatibility
 
-EuroPilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
+Europilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
 
 ## How to Contribute
 
