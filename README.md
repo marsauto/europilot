@@ -11,7 +11,7 @@ Europilot is an open source project that leverages the popular Euro Truck Simula
 
 Europilot can be used in one of two ways: training or testing. 
 
-For training, EuroPliot can capture the screen input and ouput a numpy array in realtime, while simultaenously getting the wheel-joystick values. The mapping between the relevant screenshot and the joystick values is written inside a csv file.
+For training, europilot can capture the screen input and ouput a numpy array in realtime, while simultaenously getting the wheel-joystick values. The mapping between the relevant screenshot and the joystick values is written inside a csv file.
 <div align = 'center'>
 	<img src = 'examples/example_csv.png'>
 </div>
