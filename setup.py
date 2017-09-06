@@ -19,6 +19,6 @@ setup(
     name=about['__title__'],
     version=about['__version__'],
     description=about['__description__'],
-    packages=['europilot'],
+    packages=['europilot', 'scripts'],
     install_requires=install_requires
 )
