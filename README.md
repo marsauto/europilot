@@ -26,6 +26,8 @@ For testing, europilot can create a virtual joystick driver that can be recogniz
 
 [Click to see an example demo on YouTube.](https://www.youtube.com/watch?v=n2pPR3WLaxI)
 
+[Click to read a blog post on our motivation behind the project.](https://medium.com/mars-auto/create-self-driving-trucks-inside-euro-truck-simulator-2-c64424d528ed)
+
 ## Getting Started
 
 First, clone the project
