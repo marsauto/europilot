@@ -64,7 +64,7 @@ After the generation of training data is finished, you may want to manually insp
 
 [PilotNet.ipynb](scripts/04.PilotNet.ipynb) is an implementation of Mariusz Bojarski's [End to End Learning for Self-Driving Cars](https://arxiv.org/abs/1604.07316), with slight differences. The demo shown above was created with the following notebook.
 
-For running inference on the model, check out [inference.ipynb](scripts/04.inference.ipynb) in the scripts directory.
+For running inference on the model, check out [inference.ipynb](scripts/05.inference.ipynb) in the scripts directory.
 
 ## Sample Training Data
 For those interested, a driving dataset consisting of 162,495 images is available [here](https://drive.google.com/file/d/0B42sVbnSOCJ4bnZhWF80b0xUY28/view?usp=sharing) (17G).
