@@ -95,7 +95,7 @@ For now, refer to the README and the source code.
 
 ## Compatibility
 
-Europilot runs on OS X, Linux. It supports python 2.6-2.7 and 3.3+.
+Europilot runs on linux. It supports python 2.6-2.7 and 3.3+.
 
 ## How to Contribute
 
