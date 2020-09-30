@@ -2,7 +2,7 @@
 
 ## Overview
 
-Europilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) to develop self-driving algorithms.
+Europilot is an open source project that leverages the popular Euro Truck Simulator(ETS2) mainly used to develop self-driving algorithms.
 
 ![alt tag](examples/day.gif)
 ![alt tag](examples/night.gif)
